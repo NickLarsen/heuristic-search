@@ -11,7 +11,7 @@ namespace npuzzle
             byte[] goalBytes = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
             ulong goal = GetStateKey(goalBytes);
             //byte[] initialBytes = { 14, 13, 15, 7, 11, 12, 9, 5, 6, 0, 2, 1, 4, 8, 10, 3 };
-            byte[] initialBytes = { 14,1,9,6,4,8,12,5,7,3,2,0,10,11,13,15 };
+            byte[] initialBytes = { 14,1,9,6,4,8,12,5,7,2,3,0,10,11,13,15 };
             ulong initial = GetStateKey(initialBytes);
             var solution = AStar(initial, goal, ManhattanDistance);
             if (solution.Length > 0)
