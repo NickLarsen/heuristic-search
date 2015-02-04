@@ -1,11 +1,15 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 
 namespace npuzzle
 {
     class Program
     {
+        private const string timerFormat = @"hh\:mm\:ss\.fff";
+        private static Stopwatch timer;
+
         static void Main(string[] args)
         {
             byte[] goalBytes = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
@@ -13,9 +17,12 @@ namespace npuzzle
             //byte[] initialBytes = { 14, 13, 15, 7, 11, 12, 9, 5, 6, 0, 2, 1, 4, 8, 10, 3 };
             byte[] initialBytes = { 14,1,9,6,4,8,12,5,7,2,3,0,10,11,13,15 };
             ulong initial = GetStateKey(initialBytes);
+            timer = Stopwatch.StartNew();
             var solution = AStar(initial, goal, ManhattanDistance);
+            timer.Stop();
             if (solution.Length > 0)
             {
+                Console.WriteLine("Solution found in {0} with a solution length of {1} steps!", timer.Elapsed.ToString(timerFormat), solution.Length - 1);
                 foreach (var step in solution)
                 {
                     PrintState(step);
@@ -69,7 +76,6 @@ namespace npuzzle
                     .First();
                 if (current == goal)
                 {
-                    Console.WriteLine("eval: {0}, expanded: {1}", nodesEvaluated, nodesExpanded);
                     return ReconstructPath(cameFrom, goal);
                 }
                 open.Remove(current);
@@ -90,7 +96,6 @@ namespace npuzzle
                 }
                 Console.Write("\rbest: {2}, len(open): {3}, eval: {0}, expanded: {1}", nodesEvaluated, nodesExpanded, f[current], open.Count);
             }
-            Console.WriteLine("eval: {0}, expanded: {1}", nodesEvaluated, nodesExpanded);
             return new ulong[0];
         }
 
