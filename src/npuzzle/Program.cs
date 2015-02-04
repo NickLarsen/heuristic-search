@@ -58,43 +58,47 @@ namespace npuzzle
             Console.WriteLine();
         }
 
-        static ulong[] AStar(ulong initialState, ulong goal, Func<ulong, int> h)
+        static ulong[] AStar(ulong initialState, ulong goal, Func<ulong, uint> h)
         {
             ulong nodesEvaluated = 0;
             ulong nodesExpanded = 1;
+            var g = new Dictionary<ulong, uint> {{initialState, 0u}};
             var closed = new HashSet<ulong>();
-            var open = new HashSet<ulong> {initialState};
+            var open = new SimplePriorityQueue<ulong>();
+            open.Push(initialState, g[initialState], h(initialState));
             var cameFrom = new Dictionary<ulong, ulong>();
-            var g = new Dictionary<ulong, int> {{initialState, 0}};
-            var f = new Dictionary<ulong, int> {{initialState, g[initialState] + h(initialState)}};
             while (open.Count > 0)
             {
                 nodesEvaluated += 1;
-                var current = open
-                    .OrderBy(s => f[s])
-                    .ThenByDescending(s => g[s])
-                    .First();
+                var minCost = open.GetMinCost();
+                var maxDistance = g.Max(m => m.Value);
+                var current = open.Pop();
                 if (current == goal)
                 {
                     return ReconstructPath(cameFrom, goal);
                 }
-                open.Remove(current);
                 closed.Add(current);
-                int successorGScore = g[current] + 1;
+                uint successorGScore = g[current] + 1;
                 var successors = ExpandState(current);
                 foreach (var successor in successors)
                 {
-                    if (closed.Contains(successor)) continue;
+                    if (closed.Contains(successor)) continue; // TODO: only valid because using admissable heuristics
                     if (!open.Contains(successor) || successorGScore < g[successor])
                     {
                         nodesExpanded += 1;
                         cameFrom[successor] = current;
                         g[successor] = successorGScore;
-                        f[successor] = successorGScore + h(successor);
-                        if (!open.Contains(successor)) open.Add(successor);
+                        if (open.Contains(successor))
+                        {
+                            open.DecreaseKey(successor, successorGScore, h(successor));
+                        }
+                        else
+                        {
+                            open.Push(successor, successorGScore, h(successor));
+                        }
                     }
                 }
-                Console.Write("\rbest: {2}, len(open): {3}, eval: {0}, expanded: {1}", nodesEvaluated, nodesExpanded, f[current], open.Count);
+                Console.Write("\rtime: {5}, best: {2}, max: {4}, open: {3}, eval: {0}, exp: {1}", nodesEvaluated, nodesExpanded, minCost, open.Count, maxDistance, timer.Elapsed.ToString(timerFormat));
             }
             return new ulong[0];
         }
@@ -120,20 +124,20 @@ namespace npuzzle
             return result;
         }
 
-        static int NoHeuristic(ulong state)
+        static uint NoHeuristic(ulong state)
         {
-            return 0;
+            return 0u;
         }
 
-        static int HammingDistance(ulong state)
+        static uint HammingDistance(ulong state)
         {
             int outOfPlace = 0;
             for(int i = 0, s = 0; i < 16; i += 1, s += 4)
                 if ((uint)((state >> s) & 15) != i) outOfPlace += 1;
-            return outOfPlace;
+            return (uint)outOfPlace;
         }
 
-        static int ManhattanDistance(ulong state)
+        static uint ManhattanDistance(ulong state)
         {
             int minMovesRemaning = 0;
             for (int i = 0, s = 0; i < 16; i += 1, s += 4)
@@ -146,7 +150,7 @@ namespace npuzzle
                 int ec = i%4;
                 minMovesRemaning += Math.Abs(ar - er) + Math.Abs(ac - ec);
             }
-            return minMovesRemaning;
+            return (uint)minMovesRemaning;
         }
 
         static ulong[] ReconstructPath(Dictionary<ulong, ulong> cameFrom, ulong current)
