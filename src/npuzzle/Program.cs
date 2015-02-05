@@ -96,7 +96,7 @@ namespace npuzzle
             foreach (var successor in successors)
             {
                 var newCost = cost + 1;
-                var newF = newCost + h(current);
+                var newF = newCost + idash(successor);
                 if (newF > upperbound)
                 {
                     if (newF < nextBest) nextBest = newF;
