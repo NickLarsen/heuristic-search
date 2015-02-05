@@ -66,7 +66,7 @@ namespace npuzzle
             var closed = new HashSet<ulong>();
             var open = new SimplePriorityQueue<ulong>();
             open.Push(initialState, g[initialState], h(initialState));
-            var cameFrom = new Dictionary<ulong, ulong>();
+            var cameFrom = new Dictionary<ulong, ulong> {{ initialState, 0ul }};
             while (open.Count > 0)
             {
                 nodesEvaluated += 1;
@@ -82,6 +82,7 @@ namespace npuzzle
                 var successors = ExpandState(current);
                 foreach (var successor in successors)
                 {
+                    if (cameFrom[current] == successor) continue; // don't allow a move back to the previous move
                     if (closed.Contains(successor)) continue; // TODO: only valid because using admissable heuristics
                     if (!open.Contains(successor) || successorGScore < g[successor])
                     {
@@ -157,7 +158,7 @@ namespace npuzzle
         {
             var path = new Stack<ulong>();
             path.Push(current);
-            while (cameFrom.ContainsKey(current))
+            while (cameFrom[current] != 0ul)
             {
                 current = cameFrom[current];
                 path.Push(current);
