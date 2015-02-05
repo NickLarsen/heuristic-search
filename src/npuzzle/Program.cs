@@ -9,6 +9,8 @@ namespace npuzzle
     {
         private const string timerFormat = @"hh\:mm\:ss\.fff";
         private static Stopwatch timer;
+        static ulong nodesEvaluated = 0;
+        static ulong nodesExpanded = 1;
 
         static void Main(string[] args)
         {
@@ -18,7 +20,8 @@ namespace npuzzle
             byte[] initialBytes = { 14,1,9,6,4,8,12,5,7,2,3,0,10,11,13,15 };
             ulong initial = GetStateKey(initialBytes);
             timer = Stopwatch.StartNew();
-            var solution = AStar(initial, goal, ManhattanDistance);
+            //var solution = AStar(initial, goal, ManhattanDistance);
+            var solution = IDAStarDriver(initial, goal, ManhattanDistance);
             timer.Stop();
             if (solution.Length > 0)
             {
@@ -57,10 +60,51 @@ namespace npuzzle
             Console.WriteLine();
         }
 
+        private static readonly Stack<ulong> noSolution = new Stack<ulong>(); 
+        private static uint nextBest;
+        static ulong[] IDAStarDriver(ulong initialState, ulong goal, Func<ulong, uint> h)
+        {
+            nextBest = h(initialState);
+            var bestPath = noSolution;
+            while (bestPath == noSolution && nextBest != uint.MaxValue)
+            {
+                uint threshold = nextBest;
+                nextBest = uint.MaxValue;
+                bestPath = IDAStar(initialState, goal, 0u, threshold, h);
+                Console.WriteLine();
+            }
+            return bestPath.ToArray();
+        }
+        static Stack<ulong> IDAStar(ulong current, ulong goal, uint cost, uint upperbound, Func<ulong, uint> h)
+        {
+            nodesEvaluated += 1;
+            if (current == goal) return new Stack<ulong>(new[] { current });
+            var successors = ExpandState(current);
+            foreach (var successor in successors)
+            {
+                var newCost = cost + 1;
+                var newF = newCost + h(current);
+                if (newF > upperbound)
+                {
+                    if (newF < nextBest) nextBest = newF;
+                }
+                else
+                {
+                    var p = IDAStar(successor, goal, newCost, upperbound, h);
+                    if (p != noSolution)
+                    {
+                        p.Push(current);
+                        return p;
+                    }
+                }
+            }
+            var nextBestDisplay = nextBest == uint.MaxValue ? "inf" : nextBest.ToString();
+            Console.Write("\rtime: {0}, upperbound: {1}, nextBest: {2}, eval: {3}     ", timer.Elapsed.ToString(timerFormat), upperbound, nextBestDisplay, nodesEvaluated);
+            return noSolution;
+        }
+
         static ulong[] AStar(ulong initialState, ulong goal, Func<ulong, uint> h)
         {
-            ulong nodesEvaluated = 0;
-            ulong nodesExpanded = 1;
             var g = new Dictionary<ulong, uint> {{initialState, 0u}};
             var closed = new HashSet<ulong>();
             var open = new SimplePriorityQueue<ulong>();
