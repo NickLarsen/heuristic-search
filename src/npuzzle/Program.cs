@@ -22,7 +22,7 @@ namespace npuzzle
             timer.Stop();
             if (solution.Length > 0)
             {
-                Console.WriteLine("Solution found in {0} with a solution length of {1} steps!", timer.Elapsed.ToString(timerFormat), solution.Length - 1);
+                Console.WriteLine("\nSolution found in {0} with a solution length of {1} steps!", timer.Elapsed.ToString(timerFormat), solution.Length - 1);
                 foreach (var step in solution)
                 {
                     PrintState(step);
@@ -30,9 +30,8 @@ namespace npuzzle
             }
             else
             {
-                Console.WriteLine("No solution possible.");
+                Console.WriteLine("\nNo solution possible.");
             }
-            Console.ReadLine();
         }
 
         static ulong GetStateKey(byte[] tiles)
