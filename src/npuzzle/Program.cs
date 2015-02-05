@@ -75,27 +75,29 @@ namespace npuzzle
 
         private static readonly Stack<ulong> noSolution = new Stack<ulong>(); 
         private static uint nextBest;
+        private static Func<ulong, uint> idash; 
         static ulong[] IDAStarDriver(ulong initialState, ulong goal, Func<ulong, uint> h)
         {
-            nextBest = h(initialState);
+            idash = h;
+            nextBest = idash(initialState);
             var bestPath = noSolution;
             while (bestPath == noSolution && nextBest != uint.MaxValue)
             {
                 uint threshold = nextBest;
                 nextBest = uint.MaxValue;
-                bestPath = IDAStar(initialState, goal, 0u, threshold, h);
+                bestPath = IDAStar(initialState, 0ul, goal, 0u, threshold);
                 Console.WriteLine();
             }
             return bestPath.ToArray();
         }
-        static Stack<ulong> IDAStar(ulong current, ulong goal, uint cost, uint upperbound, Func<ulong, uint> h)
+        static Stack<ulong> IDAStar(ulong current, ulong parent, ulong goal, uint cost, uint upperbound)
         {
             nodesEvaluated += 1;
             if (current == goal) return new Stack<ulong>(new[] { current });
             var successors = ExpandState(current);
-            foreach (var successor in successors)
+            var newCost = cost + 1;
+            foreach (var successor in successors.Where(s => s != parent).OrderBy(s => idash(s)))
             {
-                var newCost = cost + 1;
                 var newF = newCost + idash(successor);
                 if (newF > upperbound)
                 {
@@ -103,7 +105,7 @@ namespace npuzzle
                 }
                 else
                 {
-                    var p = IDAStar(successor, goal, newCost, upperbound, h);
+                    var p = IDAStar(successor, current, goal, newCost, upperbound);
                     if (p != noSolution)
                     {
                         p.Push(current);
