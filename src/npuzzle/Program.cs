@@ -116,6 +116,7 @@ namespace npuzzle
             return noSolution;
         }
 
+        private static uint lastMinCost = 0;
         static ulong[] AStar(ulong initialState, ulong goal, Func<ulong, uint> h)
         {
             var g = new Dictionary<ulong, uint> {{initialState, 0u}};
@@ -127,6 +128,11 @@ namespace npuzzle
             {
                 nodesEvaluated += 1;
                 var minCost = open.GetMinCost();
+                if (minCost > lastMinCost)
+                {
+                    Console.WriteLine();
+                    lastMinCost = minCost;
+                }
                 var maxDistance = g.Max(m => m.Value);
                 var current = open.Pop();
                 if (current == goal)
