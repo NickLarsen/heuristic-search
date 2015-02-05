@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.IO;
 using System.Linq;
 
 namespace npuzzle
@@ -25,10 +26,13 @@ namespace npuzzle
             timer.Stop();
             if (solution.Length > 0)
             {
-                Console.WriteLine("\nSolution found in {0} with a solution length of {1} steps!", timer.Elapsed.ToString(timerFormat), solution.Length - 1);
-                foreach (var step in solution)
+                PrintSolution(solution, Console.Out);
+                if (args.Length > 0)
                 {
-                    PrintState(step);
+                    using (var writer = new StreamWriter(args[0]))
+                    {
+                        PrintSolution(solution, writer);
+                    }
                 }
             }
             else
@@ -49,15 +53,24 @@ namespace npuzzle
             return value;
         }
 
-        static void PrintState(ulong state)
+        static void PrintSolution(ulong[] solution, TextWriter writeLocation)
+        {
+            writeLocation.WriteLine("\nSolution found in {0} with a solution length of {1} steps!", timer.Elapsed.ToString(timerFormat), solution.Length - 1);
+            foreach (var step in solution)
+            {
+                PrintState(step, writeLocation);
+            }
+        }
+
+        static void PrintState(ulong state, TextWriter writeLocation)
         {
             const ulong mask = 0xf;
             for (int shift = 0; shift < 64; shift += 4)
             {
                 ulong position = (state >> shift) & mask;
-                Console.Write("{0} ", position);
+                writeLocation.Write("{0} ", position);
             }
-            Console.WriteLine();
+            writeLocation.WriteLine();
         }
 
         private static readonly Stack<ulong> noSolution = new Stack<ulong>(); 
