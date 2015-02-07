@@ -6,7 +6,7 @@ namespace npuzzle
     {
         private const int minSize = 1048576;
         private readonly Dictionary<T, int> index = new Dictionary<T, int>();
-        private KeyValuePair<ulong, T>[] values = new KeyValuePair<ulong, T>[minSize];
+        private KeyValuePair<ulong, T>[] values = new KeyValuePair<ulong, T>[minSize + 1];
         private int size = 0;
 
         public int Count
@@ -17,11 +17,10 @@ namespace npuzzle
         public void Push(T item, uint g, uint h)
         {
             size += 1;
-            int i = size;
-            if (i > values.Length) Expand();
-            index[item] = i;
-            values[i] = new KeyValuePair<ulong, T>(GetKey(g, h), item);
-            Float(i);
+            if (size >= values.Length) Expand();
+            index[item] = size;
+            values[size] = new KeyValuePair<ulong, T>(GetKey(g, h), item);
+            Float(size);
         }
 
         public T Pop()
@@ -76,7 +75,7 @@ namespace npuzzle
 
         private void Expand()
         {
-            var tempValues = new KeyValuePair<ulong, T>[values.Length * 2];
+            var tempValues = new KeyValuePair<ulong, T>[((values.Length - 1) * 2) + 1];
             for (int i = 0; i < values.Length; i += 1)
             {
                 tempValues[i] = values[i];
@@ -86,7 +85,7 @@ namespace npuzzle
 
         private void Contract()
         {
-            var tempValues = new KeyValuePair<ulong, T>[values.Length / 2];
+            var tempValues = new KeyValuePair<ulong, T>[((values.Length - 1) / 2) + 1];
             for (int i = 0; i <= size; i += 1)
             {
                 tempValues[i] = values[i];
