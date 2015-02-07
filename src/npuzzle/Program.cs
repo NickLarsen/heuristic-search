@@ -10,34 +10,107 @@ namespace npuzzle
     {
         private const string timerFormat = @"hh\:mm\:ss\.fff";
         private static Stopwatch timer;
-        static ulong nodesEvaluated = 0;
-        static ulong nodesExpanded = 1;
+        private static long lastMillis;
+        static ulong nodesEvaluated;
+        static ulong nodesExpanded;
+        static string outputFormat;
 
         static void Main(string[] args)
         {
-            byte[] goalBytes = {0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15};
+            try
+            {
+                if (args.Length > 0)
+                {
+                    if (args.Length > 1)
+                    {
+                        outputFormat = args[1];
+                    }
+                    switch (args[0])
+                    {
+                        case "a*":
+                            DoAStar();
+                            break;
+                        case "ida*":
+                            DoIDAStar();
+                            break;
+                    }
+                }
+                else
+                {
+                    Debug();
+                }
+            }
+            catch (Exception e)
+            {
+                Console.WriteLine(e.ToString());
+            }
+        }
+
+        static void Debug()
+        {
+            byte[] goalBytes = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
             ulong goal = GetStateKey(goalBytes);
-            //byte[] initialBytes = { 14, 13, 15, 7, 11, 12, 9, 5, 6, 0, 2, 1, 4, 8, 10, 3 };
-            byte[] initialBytes = { 14,1,9,6,4,8,12,5,7,2,3,0,10,11,13,15 };
+            byte[] initialBytes = { 14, 1, 9, 6, 4, 8, 12, 5, 7, 2, 3, 0, 10, 11, 13, 15 };
             ulong initial = GetStateKey(initialBytes);
             timer = Stopwatch.StartNew();
-            //var solution = AStar(initial, goal, ManhattanDistance);
             var solution = IDAStarDriver(initial, goal, ManhattanDistance);
             timer.Stop();
             if (solution.Length > 0)
             {
                 PrintSolution(solution, Console.Out);
-                if (args.Length > 0)
-                {
-                    using (var writer = new StreamWriter(args[0]))
-                    {
-                        PrintSolution(solution, writer);
-                    }
-                }
             }
             else
             {
                 Console.WriteLine("\nNo solution possible.");
+            }
+        }
+
+        static void DoAStar()
+        {
+            DoPuzzles(KorfPuzzles.Puzzles, AStar);
+        }
+
+        static void DoIDAStar()
+        {
+            DoPuzzles(KorfPuzzles.Puzzles, IDAStarDriver);
+        }
+
+        static void DoPuzzles(KorfPuzzle[] puzzles, Func<ulong, ulong, Func<ulong, uint>, ulong[]> algorithm)
+        {
+            byte[] goalBytes = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+            ulong goal = GetStateKey(goalBytes);
+            foreach (var korfPuzzle in puzzles)
+            {
+                if (outputFormat != null)
+                {
+                    string filename = string.Format(outputFormat, korfPuzzle.Number);
+                    if (File.Exists(filename)) continue;
+                }
+                nodesExpanded = 0;
+                nodesEvaluated = 0;
+                lastMillis = 0;
+                Console.WriteLine("\n\n{0}: < {1} >", korfPuzzle.Number, string.Join(",", korfPuzzle.InitialState));
+                Console.WriteLine("actual solution length: {0}, korf nodes evaluated: {1:n0}", korfPuzzle.Actual, korfPuzzle.KorfNodesExpanded);
+                ulong initial = GetStateKey(korfPuzzle.InitialState);
+                timer = Stopwatch.StartNew();
+                var solution = algorithm(initial, goal, ManhattanDistance);
+                timer.Stop();
+                if (solution.Length > 0)
+                {
+                    PrintSolution(solution, Console.Out);
+                    if (outputFormat != null)
+                    {
+                        string filename = string.Format(outputFormat, korfPuzzle.Number);
+                        using (var writer = new StreamWriter(filename))
+                        {
+                            PrintSolution(solution, writer);
+                        }
+                    }
+                }
+                else
+                {
+                    Console.WriteLine("\nNo solution possible.");
+                }
             }
         }
 
@@ -55,7 +128,7 @@ namespace npuzzle
 
         static void PrintSolution(ulong[] solution, TextWriter writeLocation)
         {
-            writeLocation.WriteLine("\nSolution found in {0} with a solution length of {1} steps!", timer.Elapsed.ToString(timerFormat), solution.Length - 1);
+            writeLocation.WriteLine("\nSolution found! time: {0}, length: {1}, eval: {2}", timer.Elapsed.ToString(timerFormat), solution.Length - 1, nodesEvaluated);
             foreach (var step in solution)
             {
                 PrintState(step, writeLocation);
@@ -96,7 +169,7 @@ namespace npuzzle
             if (current == goal) return new Stack<ulong>(new[] { current });
             var successors = ExpandState(current);
             var newCost = cost + 1;
-            foreach (var successor in successors.Where(s => s != parent).OrderBy(s => idash(s)))
+            foreach (var successor in successors.Where(s => s != parent))
             {
                 var newF = newCost + idash(successor);
                 if (newF > upperbound)
@@ -113,14 +186,18 @@ namespace npuzzle
                     }
                 }
             }
-            var nextBestDisplay = nextBest == uint.MaxValue ? "inf" : nextBest.ToString();
-            Console.Write("\rtime: {0}, upperbound: {1}, nextBest: {2}, eval: {3}     ", timer.Elapsed.ToString(timerFormat), upperbound, nextBestDisplay, nodesEvaluated);
+            if (parent == 0ul || (timer.ElapsedMilliseconds - lastMillis) > 1000)
+            {
+                var nextBestDisplay = nextBest == uint.MaxValue ? "inf" : nextBest.ToString();
+                Console.Write("\rtime: {0}, upperbound: {1}, nextBest: {2}, eval: {3:n0}     ", timer.Elapsed.ToString(timerFormat), upperbound, nextBestDisplay, nodesEvaluated);
+                lastMillis = timer.ElapsedMilliseconds;
+            }
             return noSolution;
         }
 
-        private static uint lastMinCost = 0;
         static ulong[] AStar(ulong initialState, ulong goal, Func<ulong, uint> h)
         {
+            uint lastMinCost = 0u;
             var g = new Dictionary<ulong, uint> {{initialState, 0u}};
             var closed = new HashSet<ulong>();
             var open = new SimplePriorityQueue<ulong>();
@@ -132,10 +209,9 @@ namespace npuzzle
                 var minCost = open.GetMinCost();
                 if (minCost > lastMinCost)
                 {
-                    Console.WriteLine();
+                    Console.Write("\n\rtime: {0}, best: {1}, open: {2}, eval: {3}, exp: {4}", timer.Elapsed.ToString(timerFormat), minCost, open.Count, nodesEvaluated, nodesExpanded);
                     lastMinCost = minCost;
                 }
-                var maxDistance = g.Max(m => m.Value);
                 var current = open.Pop();
                 if (current == goal)
                 {
@@ -163,7 +239,11 @@ namespace npuzzle
                         }
                     }
                 }
-                Console.Write("\rtime: {5}, best: {2}, max: {4}, open: {3}, eval: {0}, exp: {1}", nodesEvaluated, nodesExpanded, minCost, open.Count, maxDistance, timer.Elapsed.ToString(timerFormat));
+                if ((timer.ElapsedMilliseconds - lastMillis) > 1000)
+                {
+                    Console.Write("\rtime: {0}, best: {1}, open: {2}, eval: {3}, exp: {4}", timer.Elapsed.ToString(timerFormat), minCost, open.Count, nodesEvaluated, nodesExpanded);
+                    lastMillis = timer.ElapsedMilliseconds;
+                }
             }
             return new ulong[0];
         }
