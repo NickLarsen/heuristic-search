@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Text.RegularExpressions;
 
 namespace npuzzle
 {
@@ -33,6 +34,9 @@ namespace npuzzle
                         case "ida*":
                             DoIDAStar();
                             break;
+                        case "compare":
+                            CompareResults();
+                            break;
                     }
                 }
                 else
@@ -50,8 +54,9 @@ namespace npuzzle
         {
             byte[] goalBytes = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
             ulong goal = GetStateKey(goalBytes);
-            byte[] initialBytes = { 14, 1, 9, 6, 4, 8, 12, 5, 7, 2, 3, 0, 10, 11, 13, 15 };
-            ulong initial = GetStateKey(initialBytes);
+            var puzzle = KorfPuzzles.Puzzles[9];
+            ulong initial = GetStateKey(puzzle.InitialState);
+            Console.WriteLine("\n\n{0}: < {1} >, best: {2:n0}", puzzle.Number, string.Join(",", puzzle.InitialState), puzzle.KorfNodesExpanded);
             timer = Stopwatch.StartNew();
             var solution = IDAStarDriver(initial, goal, ManhattanDistance);
             timer.Stop();
@@ -62,6 +67,27 @@ namespace npuzzle
             else
             {
                 Console.WriteLine("\nNo solution possible.");
+            }
+        }
+
+        static void CompareResults()
+        {
+            foreach (var korfPuzzle in KorfPuzzles.Puzzles)
+            {
+                string filename = string.Format(outputFormat, korfPuzzle.Number);
+                var importantLine = File.ReadAllLines(filename)[1];
+                var evalnodes = Convert.ToUInt64(importantLine.Substring(54));
+                if (evalnodes > korfPuzzle.KorfNodesExpanded)
+                {
+                    Console.BackgroundColor = ConsoleColor.DarkRed;
+                }
+                else if (evalnodes < korfPuzzle.KorfNodesExpanded)
+                {
+                    Console.BackgroundColor = ConsoleColor.DarkGreen;
+                }
+                Console.Write("{0,3}:  k={1,13:n0}  n={2,13:n0}", korfPuzzle.Number, korfPuzzle.KorfNodesExpanded, evalnodes);
+                Console.ResetColor();
+                Console.WriteLine();
             }
         }
 
@@ -153,11 +179,13 @@ namespace npuzzle
         {
             idash = h;
             nextBest = idash(initialState);
+            nodesEvaluated = 1;
             var bestPath = noSolution;
             while (bestPath == noSolution && nextBest != uint.MaxValue)
             {
                 uint threshold = nextBest;
                 nextBest = uint.MaxValue;
+                //nodesEvaluated += 1;
                 bestPath = IDAStar(initialState, 0ul, goal, 0u, threshold);
                 Console.WriteLine();
             }
@@ -165,12 +193,12 @@ namespace npuzzle
         }
         static Stack<ulong> IDAStar(ulong current, ulong parent, ulong goal, uint cost, uint upperbound)
         {
-            nodesEvaluated += 1;
             if (current == goal) return new Stack<ulong>(new[] { current });
             var successors = ExpandState(current);
             var newCost = cost + 1;
             foreach (var successor in successors.Where(s => s != parent))
             {
+                nodesEvaluated += 1;
                 var newF = newCost + idash(successor);
                 if (newF > upperbound)
                 {
@@ -253,10 +281,10 @@ namespace npuzzle
             var successors = new List<ulong>();
             int e = 0;
             while (((state >> e) & 15) != 0) e += 4;
-            if (e > 15) successors.Add(SwapParts(state, e, e - 16));
-            if (e < 48) successors.Add(SwapParts(state, e, e + 16));
-            if (e % 16 > 0) successors.Add(SwapParts(state, e, e - 4));
-            if (e % 16 < 12) successors.Add(SwapParts(state, e, e + 4));
+            if (e > 15) successors.Add(SwapParts(state, e, e - 16)); // up
+            if (e % 16 > 0) successors.Add(SwapParts(state, e, e - 4)); // left
+            if (e % 16 < 12) successors.Add(SwapParts(state, e, e + 4)); // right
+            if (e < 48) successors.Add(SwapParts(state, e, e + 16)); // down
             return successors;
         }
 
