@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 
 namespace npuzzle
 {
@@ -47,13 +46,11 @@ namespace npuzzle
 
         static void Debug()
         {
-            byte[] goalBytes = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
-            ulong goal = GetStateKey(goalBytes);
-            var puzzle = KorfPuzzles.Puzzles[9];
-            ulong initial = GetStateKey(puzzle.InitialState);
+            byte[] goal = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+            var puzzle = KorfPuzzles.Puzzles[11];
             Console.WriteLine("\n\n{0}: < {1} >, best: {2:n0}", puzzle.Number, string.Join(",", puzzle.InitialState), puzzle.KorfNodesExpanded);
             timer = Stopwatch.StartNew();
-            var solution = IDAStarDriver(initial, goal, ManhattanDistance);
+            var solution = IDAStarDriver(puzzle.InitialState, goal, ManhattanDistance);
             timer.Stop();
             if (solution.Length > 0)
             {
@@ -91,10 +88,9 @@ namespace npuzzle
             DoPuzzles(KorfPuzzles.Puzzles, IDAStarDriver);
         }
 
-        static void DoPuzzles(KorfPuzzle[] puzzles, Func<ulong, ulong, Func<ulong, uint>, ulong[]> algorithm)
+        static void DoPuzzles(KorfPuzzle[] puzzles, Func<byte[], byte[], Func<byte[], uint>, byte[][]> algorithm)
         {
-            byte[] goalBytes = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
-            ulong goal = GetStateKey(goalBytes);
+            byte[] goal = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
             foreach (var korfPuzzle in puzzles)
             {
                 if (outputFormat != null)
@@ -106,9 +102,8 @@ namespace npuzzle
                 lastMillis = 0;
                 Console.WriteLine("\n\n{0}: < {1} >", korfPuzzle.Number, string.Join(",", korfPuzzle.InitialState));
                 Console.WriteLine("actual solution length: {0}, korf nodes evaluated: {1:n0}", korfPuzzle.Actual, korfPuzzle.KorfNodesExpanded);
-                ulong initial = GetStateKey(korfPuzzle.InitialState);
                 timer = Stopwatch.StartNew();
-                var solution = algorithm(initial, goal, ManhattanDistance);
+                var solution = algorithm(korfPuzzle.InitialState, goal, ManhattanDistance);
                 timer.Stop();
                 if (solution.Length > 0)
                 {
@@ -129,64 +124,44 @@ namespace npuzzle
             }
         }
 
-        static ulong GetStateKey(byte[] tiles)
-        {
-            ulong value = 0;
-            for (int i = 0; i < 16; i += 1)
-            {
-                int shift = i * 4;
-                ulong part = (ulong)tiles[i] << shift;
-                value |= part;
-            }
-            return value;
-        }
-
-        static void PrintSolution(ulong[] solution, TextWriter writeLocation)
+        static void PrintSolution(byte[][] solution, TextWriter writeLocation)
         {
             writeLocation.WriteLine("\nSolution found! time: {0}, length: {1}, eval: {2}", timer.Elapsed.ToString(timerFormat), solution.Length - 1, nodeCounter);
             foreach (var step in solution)
             {
-                PrintState(step, writeLocation);
+                writeLocation.WriteLine(string.Join(" ", step));
             }
         }
 
-        static void PrintState(ulong state, TextWriter writeLocation)
-        {
-            const ulong mask = 0xf;
-            for (int shift = 0; shift < 64; shift += 4)
-            {
-                ulong position = (state >> shift) & mask;
-                writeLocation.Write("{0} ", position);
-            }
-            writeLocation.WriteLine();
-        }
-
-        private static readonly Stack<ulong> noSolution = new Stack<ulong>(); 
+        private static readonly Stack<byte[]> noSolution = new Stack<byte[]>(); 
         private static uint nextBest;
-        private static Func<ulong, uint> idash; 
-        static ulong[] IDAStarDriver(ulong initialState, ulong goal, Func<ulong, uint> h)
+        private static Func<byte[], uint> idash;
+        private static byte[] noParent;
+        static byte[][] IDAStarDriver(byte[] initialState, byte[] goal, Func<byte[], uint> h)
         {
             idash = h;
             nextBest = idash(initialState);
             nodeCounter = 1;
+            noParent = new byte[initialState.Length];
             var bestPath = noSolution;
             while (bestPath == noSolution && nextBest != uint.MaxValue)
             {
                 uint threshold = nextBest;
                 nextBest = uint.MaxValue;
                 //nodesEvaluated += 1;
-                bestPath = IDAStar(initialState, 0ul, goal, 0u, threshold);
+                bestPath = IDAStar(initialState, noParent, goal, 0u, threshold);
                 Console.WriteLine();
             }
             return bestPath.ToArray();
         }
-        static Stack<ulong> IDAStar(ulong current, ulong parent, ulong goal, uint cost, uint upperbound)
+        static Stack<byte[]> IDAStar(byte[] current, byte[] parent, byte[] goal, uint cost, uint upperbound)
         {
-            if (current == goal) return new Stack<ulong>(new[] { current });
-            var successors = ExpandState(current);
+            if (AreSame(current, goal)) return new Stack<byte[]>(new[] { current });
             var newCost = cost + 1;
-            foreach (var successor in successors.Where(s => s != parent))
+            var successors = ExpandState(current);
+            foreach (var successor in successors)
             {
+                if (AreSame(successor, parent)) continue;
                 nodeCounter += 1;
                 var newF = newCost + idash(successor);
                 if (newF > upperbound)
@@ -203,7 +178,7 @@ namespace npuzzle
                     }
                 }
             }
-            if (parent == 0ul || (timer.ElapsedMilliseconds - lastMillis) > 1000)
+            if (parent == noParent || (timer.ElapsedMilliseconds - lastMillis) > 1000)
             {
                 var nextBestDisplay = nextBest == uint.MaxValue ? "inf" : nextBest.ToString();
                 Console.Write("\rtime: {0}, upperbound: {1}, nextBest: {2}, eval: {3:n0}     ", timer.Elapsed.ToString(timerFormat), upperbound, nextBestDisplay, nodeCounter);
@@ -212,54 +187,68 @@ namespace npuzzle
             return noSolution;
         }
 
-        static List<ulong> ExpandState(ulong state)
+        static bool AreSame(byte[] a, byte[] b)
         {
-            var successors = new List<ulong>();
+            for (int i = 0; i < a.Length; i += 1)
+            {
+                if (a[i] != b[i]) return false;
+            }
+            return true;
+        }
+
+        static List<byte[]> ExpandState(byte[] state)
+        {
+            var successors = new List<byte[]>();
             int e = 0;
-            while (((state >> e) & 15) != 0) e += 4;
-            if (e > 15) successors.Add(SwapParts(state, e, e - 16)); // up
-            if (e % 16 > 0) successors.Add(SwapParts(state, e, e - 4)); // left
-            if (e % 16 < 12) successors.Add(SwapParts(state, e, e + 4)); // right
-            if (e < 48) successors.Add(SwapParts(state, e, e + 16)); // down
+            while (state[e] != 0) e += 1;
+            if (e > 3) successors.Add(CreateSuccessor(state, e, e - 4)); // up
+            if (e % 4 > 0) successors.Add(CreateSuccessor(state, e, e - 1)); // left
+            if (e % 4 < 3) successors.Add(CreateSuccessor(state, e, e + 1)); // right
+            if (e < 12) successors.Add(CreateSuccessor(state, e, e + 4)); // down
             return successors;
         }
 
-        static ulong SwapParts(ulong state, int fs, int ss)
+        static byte[] CreateSuccessor(byte[] state, int a, int b)
         {
-            ulong fvs = ((state >> fs) & 15) << ss;
-            ulong svf = ((state >> ss) & 15) << fs;
-            ulong unmoved = ~(15ul << fs) & ~(15ul << ss);
-            ulong result = state & unmoved | svf | fvs;
-            return result;
+            var successor = new byte[state.Length];
+            for (int i = 0; i < successor.Length; i += 1)
+            {
+                successor[i] = state[i];
+            }
+            var temp = successor[a];
+            successor[a] = successor[b];
+            successor[b] = temp;
+            return successor;
         }
 
-        static uint NoHeuristic(ulong state)
+        static uint NoHeuristic(byte[] state)
         {
             return 0u;
         }
 
-        static uint HammingDistance(ulong state)
+        static uint HammingDistance(byte[] state)
         {
-            int outOfPlace = 0;
-            for(int i = 0, s = 0; i < 16; i += 1, s += 4)
-                if ((uint)((state >> s) & 15) != i) outOfPlace += 1;
-            return (uint)outOfPlace;
+            uint outOfPlace = 0;
+            for(int i = 0; i < state.Length; i += 1)
+                if (state[i] != i) outOfPlace += 1;
+            return outOfPlace;
         }
 
-        static uint ManhattanDistance(ulong state)
+        static uint ManhattanDistance(byte[] state)
         {
-            int minMovesRemaning = 0;
-            for (int i = 0, s = 0; i < 16; i += 1, s += 4)
+            uint minMovesRemaning = 0;
+            for (uint i = 0; i < state.Length; i += 1)
             {
-                int value = (int)((state >> s) & 15);
+                byte value = state[i];
                 if (value == 0) continue;
-                int ar = value/4;
-                int ac = value%4;
-                int er = i/4;
-                int ec = i%4;
-                minMovesRemaning += Math.Abs(ar - er) + Math.Abs(ac - ec);
+                uint ar = value / 4u;
+                uint er = i / 4u;
+                minMovesRemaning += ar > er ? ar - er : er - ar;
+                uint ac = value % 4u;
+                uint ec = i % 4u;
+                minMovesRemaning += ac > ec ? ac - ec : ec - ac;
             }
-            return (uint)minMovesRemaning;
+            return minMovesRemaning;
         }
     }
 }
