@@ -3,7 +3,6 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Text.RegularExpressions;
 
 namespace npuzzle
 {
@@ -12,9 +11,8 @@ namespace npuzzle
         private const string timerFormat = @"hh\:mm\:ss\.fff";
         private static Stopwatch timer;
         private static long lastMillis;
-        static ulong nodesEvaluated;
-        static ulong nodesExpanded;
-        static string outputFormat;
+        private static ulong nodeCounter;
+        private static string outputFormat;
 
         static void Main(string[] args)
         {
@@ -28,9 +26,6 @@ namespace npuzzle
                     }
                     switch (args[0])
                     {
-                        case "a*":
-                            DoAStar();
-                            break;
                         case "ida*":
                             DoIDAStar();
                             break;
@@ -91,11 +86,6 @@ namespace npuzzle
             }
         }
 
-        static void DoAStar()
-        {
-            DoPuzzles(KorfPuzzles.Puzzles, AStar);
-        }
-
         static void DoIDAStar()
         {
             DoPuzzles(KorfPuzzles.Puzzles, IDAStarDriver);
@@ -112,8 +102,7 @@ namespace npuzzle
                     string filename = string.Format(outputFormat, korfPuzzle.Number);
                     if (File.Exists(filename)) continue;
                 }
-                nodesExpanded = 0;
-                nodesEvaluated = 0;
+                nodeCounter = 0;
                 lastMillis = 0;
                 Console.WriteLine("\n\n{0}: < {1} >", korfPuzzle.Number, string.Join(",", korfPuzzle.InitialState));
                 Console.WriteLine("actual solution length: {0}, korf nodes evaluated: {1:n0}", korfPuzzle.Actual, korfPuzzle.KorfNodesExpanded);
@@ -154,7 +143,7 @@ namespace npuzzle
 
         static void PrintSolution(ulong[] solution, TextWriter writeLocation)
         {
-            writeLocation.WriteLine("\nSolution found! time: {0}, length: {1}, eval: {2}", timer.Elapsed.ToString(timerFormat), solution.Length - 1, nodesEvaluated);
+            writeLocation.WriteLine("\nSolution found! time: {0}, length: {1}, eval: {2}", timer.Elapsed.ToString(timerFormat), solution.Length - 1, nodeCounter);
             foreach (var step in solution)
             {
                 PrintState(step, writeLocation);
@@ -179,7 +168,7 @@ namespace npuzzle
         {
             idash = h;
             nextBest = idash(initialState);
-            nodesEvaluated = 1;
+            nodeCounter = 1;
             var bestPath = noSolution;
             while (bestPath == noSolution && nextBest != uint.MaxValue)
             {
@@ -198,7 +187,7 @@ namespace npuzzle
             var newCost = cost + 1;
             foreach (var successor in successors.Where(s => s != parent))
             {
-                nodesEvaluated += 1;
+                nodeCounter += 1;
                 var newF = newCost + idash(successor);
                 if (newF > upperbound)
                 {
@@ -217,63 +206,10 @@ namespace npuzzle
             if (parent == 0ul || (timer.ElapsedMilliseconds - lastMillis) > 1000)
             {
                 var nextBestDisplay = nextBest == uint.MaxValue ? "inf" : nextBest.ToString();
-                Console.Write("\rtime: {0}, upperbound: {1}, nextBest: {2}, eval: {3:n0}     ", timer.Elapsed.ToString(timerFormat), upperbound, nextBestDisplay, nodesEvaluated);
+                Console.Write("\rtime: {0}, upperbound: {1}, nextBest: {2}, eval: {3:n0}     ", timer.Elapsed.ToString(timerFormat), upperbound, nextBestDisplay, nodeCounter);
                 lastMillis = timer.ElapsedMilliseconds;
             }
             return noSolution;
-        }
-
-        static ulong[] AStar(ulong initialState, ulong goal, Func<ulong, uint> h)
-        {
-            uint lastMinCost = 0u;
-            var g = new Dictionary<ulong, uint> {{initialState, 0u}};
-            var closed = new HashSet<ulong>();
-            var open = new SimplePriorityQueue<ulong>();
-            open.Push(initialState, g[initialState], h(initialState));
-            var cameFrom = new Dictionary<ulong, ulong> {{ initialState, 0ul }};
-            while (open.Count > 0)
-            {
-                nodesEvaluated += 1;
-                var minCost = open.GetMinCost();
-                if (minCost > lastMinCost)
-                {
-                    Console.Write("\n\rtime: {0}, best: {1}, open: {2}, eval: {3}, exp: {4}", timer.Elapsed.ToString(timerFormat), minCost, open.Count, nodesEvaluated, nodesExpanded);
-                    lastMinCost = minCost;
-                }
-                var current = open.Pop();
-                if (current == goal)
-                {
-                    return ReconstructPath(cameFrom, goal);
-                }
-                closed.Add(current);
-                uint successorGScore = g[current] + 1;
-                var successors = ExpandState(current);
-                foreach (var successor in successors)
-                {
-                    if (cameFrom[current] == successor) continue; // don't allow a move back to the previous move
-                    if (closed.Contains(successor)) continue; // TODO: only valid because using admissable heuristics
-                    if (!open.Contains(successor) || successorGScore < g[successor])
-                    {
-                        nodesExpanded += 1;
-                        cameFrom[successor] = current;
-                        g[successor] = successorGScore;
-                        if (open.Contains(successor))
-                        {
-                            open.DecreaseKey(successor, successorGScore, h(successor));
-                        }
-                        else
-                        {
-                            open.Push(successor, successorGScore, h(successor));
-                        }
-                    }
-                }
-                if ((timer.ElapsedMilliseconds - lastMillis) > 1000)
-                {
-                    Console.Write("\rtime: {0}, best: {1}, open: {2}, eval: {3}, exp: {4}", timer.Elapsed.ToString(timerFormat), minCost, open.Count, nodesEvaluated, nodesExpanded);
-                    lastMillis = timer.ElapsedMilliseconds;
-                }
-            }
-            return new ulong[0];
         }
 
         static List<ulong> ExpandState(ulong state)
@@ -324,18 +260,6 @@ namespace npuzzle
                 minMovesRemaning += Math.Abs(ar - er) + Math.Abs(ac - ec);
             }
             return (uint)minMovesRemaning;
-        }
-
-        static ulong[] ReconstructPath(Dictionary<ulong, ulong> cameFrom, ulong current)
-        {
-            var path = new Stack<ulong>();
-            path.Push(current);
-            while (cameFrom[current] != 0ul)
-            {
-                current = cameFrom[current];
-                path.Push(current);
-            }
-            return path.ToArray();
         }
     }
 }
