@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.Linq;
 
 namespace npuzzle
 {
@@ -19,17 +20,19 @@ namespace npuzzle
             {
                 if (args.Length > 0)
                 {
-                    if (args.Length > 1)
-                    {
-                        outputFormat = args[1];
-                    }
                     switch (args[0])
                     {
                         case "ida*":
-                            DoIDAStar();
+                            DoIDAStar(args);
                             break;
-                        case "compare":
-                            CompareResults();
+                        case "compare-results":
+                            CompareResults(args);
+                            break;
+                        case "compare-heuristics":
+                            CompareHeuristics(args);
+                            break;
+                        case "build-pdb":
+                            CreatePDB(args);
                             break;
                     }
                 }
@@ -46,11 +49,18 @@ namespace npuzzle
 
         static void Debug()
         {
+            CreatePDB(new[] { "build-pdb", "fringe.data", "4", "4", "0,3,7,11,12,13,14,15" });
+            //FastIDAStar();
+        }
+
+        static void FastIDAStar()
+        {
             byte[] goal = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
-            var puzzle = KorfPuzzles.Puzzles[11];
-            Console.WriteLine("\n\n{0}: < {1} >, best: {2:n0}", puzzle.Number, string.Join(",", puzzle.InitialState), puzzle.KorfNodesExpanded);
+            byte[] initial = { 0, 1, 9, 7, 11, 13, 5, 3, 14, 12, 4, 2, 8, 6, 10, 15 };
+            byte[] pattern = { 0, 3, 7, 11, 12, 13, 14, 15 };
+            Console.WriteLine("\n\n{0}: < {1} >, best: {2:n0}", 0, string.Join(",", initial), 0);
             timer = Stopwatch.StartNew();
-            var solution = IDAStarDriver(puzzle.InitialState, goal, ManhattanDistance);
+            var solution = IDAStarDriver(initial, goal, ManhattanDistance);
             timer.Stop();
             if (solution.Length > 0)
             {
@@ -62,8 +72,12 @@ namespace npuzzle
             }
         }
 
-        static void CompareResults()
+        static void CompareResults(string[] args)
         {
+            if (args.Length > 1)
+            {
+                outputFormat = args[1];
+            }
             foreach (var korfPuzzle in KorfPuzzles.Puzzles)
             {
                 string filename = string.Format(outputFormat, korfPuzzle.Number);
@@ -83,14 +97,74 @@ namespace npuzzle
             }
         }
 
-        static void DoIDAStar()
+        static void CompareHeuristics(string[] args)
         {
+            var fringePdb = new PatternDatabase("fringe.data");
+            var results = new Tuple<int, uint, uint, uint>[KorfPuzzles.Puzzles.Length];
+            foreach (var puzzle in KorfPuzzles.Puzzles)
+            {
+                uint hMD = ManhattanDistance(puzzle.InitialState);
+                uint hFringe = fringePdb.Evaluate(puzzle.InitialState);
+                uint better = hFringe > hMD ? hFringe - hMD : 0;
+                results[puzzle.Number - 1] = Tuple.Create(puzzle.Number, hMD, hFringe, better);
+            }
+            foreach (var test in results.OrderBy(m => m.Item4))
+            {
+                if (test.Item2 > test.Item3)
+                {
+                    Console.BackgroundColor = ConsoleColor.DarkRed;
+                }
+                else if (test.Item2 < test.Item3)
+                {
+                    Console.BackgroundColor = ConsoleColor.DarkGreen;
+                }
+                Console.Write("{0,3}:  hMD={1,3}  n={2,3}  improve:{3,3}", test.Item1, test.Item2, test.Item3, test.Item4);
+                Console.ResetColor();
+                Console.WriteLine();
+            }
+        }
+
+        static void CreatePDB(string[] args)
+        {
+            if (args.Length > 1)
+            {
+                outputFormat = args[1];
+            }
+            int rows = Convert.ToInt32(args[2]);
+            int cols = Convert.ToInt32(args[3]);
+            byte[] pattern = args[4].Split(',').Select(m => Convert.ToByte(m)).ToArray();
+            byte[] goal = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+            timer = Stopwatch.StartNew();
+            var pdb = PatternDatabase.Create(rows, cols, pattern, goal, ShowCreateStats, ExpandState);
+            timer.Stop();
+            Console.WriteLine();
+            Console.WriteLine("Completed building Pattern Database.  Saving to {0}", outputFormat);
+            pdb.Save(outputFormat);
+        }
+
+        static void ShowCreateStats(PatternDatabase.CreateStats stats)
+        {
+            if (stats.IsFinished || (timer.ElapsedMilliseconds - lastMillis) > 1000)
+            {
+                Console.Write("\rtime: {0}, total-states: {1}, depth: {2}, eval: {3:n0}", timer.Elapsed.ToString(timerFormat), stats.TotalStates, stats.CurrentDepth, stats.StatesCalculated);
+                lastMillis = timer.ElapsedMilliseconds;
+            }
+        }
+
+        static void DoIDAStar(string[] args)
+        {
+            if (args.Length > 1)
+            {
+                outputFormat = args[1];
+            }
             DoPuzzles(KorfPuzzles.Puzzles, IDAStarDriver);
         }
 
         static void DoPuzzles(KorfPuzzle[] puzzles, Func<byte[], byte[], Func<byte[], uint>, byte[][]> algorithm)
         {
             byte[] goal = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+            var fringePdb = new PatternDatabase("fringe.data");
+            var heuristic = CompositeHeuristic(ManhattanDistance, fringePdb.Evaluate);
             foreach (var korfPuzzle in puzzles)
             {
                 if (outputFormat != null)
@@ -103,7 +177,7 @@ namespace npuzzle
                 Console.WriteLine("\n\n{0}: < {1} >", korfPuzzle.Number, string.Join(",", korfPuzzle.InitialState));
                 Console.WriteLine("actual solution length: {0}, korf nodes evaluated: {1:n0}", korfPuzzle.Actual, korfPuzzle.KorfNodesExpanded);
                 timer = Stopwatch.StartNew();
-                var solution = algorithm(korfPuzzle.InitialState, goal, ManhattanDistance);
+                var solution = algorithm(korfPuzzle.InitialState, goal, heuristic);
                 timer.Stop();
                 if (solution.Length > 0)
                 {
@@ -238,7 +312,7 @@ namespace npuzzle
             for (uint i = 0; i < state.Length; i += 1)
             {
                 byte value = state[i];
-                if (value == 0) continue;
+                if (value == 0 || value == byte.MaxValue) continue;
                 uint ar = value / 4u;
                 uint er = i / 4u;
                 minMovesRemaning += ar > er ? ar - er : er - ar;
@@ -247,6 +321,14 @@ namespace npuzzle
                 minMovesRemaning += ac > ec ? ac - ec : ec - ac;
             }
             return minMovesRemaning;
+        }
+
+        static Func<byte[],uint> CompositeHeuristic(params Func<byte[], uint>[] heuristics)
+        {
+            return state =>
+            {
+                return heuristics.Max(h => h(state));
+            };
         }
     }
 }
