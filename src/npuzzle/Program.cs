@@ -215,9 +215,7 @@ namespace npuzzle
             {
                 successor[i] = state[i];
             }
-            var temp = successor[a];
-            successor[a] = successor[b];
-            successor[b] = temp;
+            successor.Swap(a,b);
             return successor;
         }
 
