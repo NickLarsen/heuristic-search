@@ -164,7 +164,7 @@ namespace npuzzle
             var symmetryFringeHeuristic = SymmetryCheckingPdbHeuristic(fringePdb);
             var cornerPdb = new PatternDatabase("corner.data");
             var symmetryCornerHeuristic = SymmetryCheckingPdbHeuristic(cornerPdb);
-            var heuristic = CompositeHeuristic(ManhattanDistance, symmetryFringeHeuristic);
+            var heuristic = CompositeHeuristic(ManhattanDistance, symmetryFringeHeuristic, symmetryCornerHeuristic);
             foreach (var korfPuzzle in puzzles)
             {
                 if (outputFormat != null)
