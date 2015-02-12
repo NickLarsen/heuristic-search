@@ -11,6 +11,11 @@ namespace npuzzle
         private readonly byte[] pattern;
         private readonly int offset;
 
+        public byte[] Pattern
+        {
+            get { return pattern; }
+        }
+
         public PatternDatabase(string filename)
             : this(File.ReadAllBytes(filename))
         {
