@@ -50,19 +50,20 @@ namespace npuzzle
         static void Debug()
         {
             //CreatePDB(new[] { "build-pdb", "fringe.data", "4", "4", "0,3,7,11,12,13,14,15" });
-            //FastIDAStar();
+            //CreatePDB(new[] { "build-pdb", "corner.data", "4", "4", "0,8,9,10,12,13,14,15" });
+            FastIDAStar();
             //MakeCsv(new string[] { "make-csv", @"results\korf15-ida-md-{0}.txt", @"results\korf15-ida-md-fr-{0}.txt", @"results\korf15-ida-md-co-{0}.txt", @"results\korf15-ida-md-fc-{0}.txt"});
-            ExplainSymmetries(KorfPuzzles.Puzzles[78].InitialState);
+            //ExplainSymmetries(KorfPuzzles.Puzzles[78].InitialState);
         }
 
         static void FastIDAStar()
         {
             byte[] goal = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
-            byte[] initial = { 0, 1, 9, 7, 11, 13, 5, 3, 14, 12, 4, 2, 8, 6, 10, 15 };
-            byte[] pattern = { 0, 3, 7, 11, 12, 13, 14, 15 };
-            Console.WriteLine("\n\n{0}: < {1} >, best: {2:n0}", 0, string.Join(",", initial), 0);
+            var puzzle = KorfPuzzles.Puzzles[87];
+            Console.WriteLine("\n\n{0}: < {1} >, best: {2:n0}, korf: {3:n0}", puzzle.Number, string.Join(",", puzzle.InitialState), puzzle.Actual, puzzle.KorfNodesExpanded);
+            var heuristic = GetIDAStarHeuristic();
             timer = Stopwatch.StartNew();
-            var solution = IDAStarDriver(initial, goal, ManhattanDistance);
+            var solution = IDAStarDriver(puzzle.InitialState, goal, heuristic);
             timer.Stop();
             if (solution.Length > 0)
             {
@@ -160,11 +161,7 @@ namespace npuzzle
         static void DoPuzzles(KorfPuzzle[] puzzles, Func<byte[], byte[], Func<byte[], uint>, byte[][]> algorithm)
         {
             byte[] goal = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
-            var fringePdb = new PatternDatabase("fringe.data");
-            var symmetryFringeHeuristic = SymmetryCheckingPdbHeuristic(fringePdb);
-            var cornerPdb = new PatternDatabase("corner.data");
-            var symmetryCornerHeuristic = SymmetryCheckingPdbHeuristic(cornerPdb);
-            var heuristic = CompositeHeuristic(ManhattanDistance, symmetryFringeHeuristic, symmetryCornerHeuristic);
+            var heuristic = GetIDAStarHeuristic();
             foreach (var korfPuzzle in puzzles)
             {
                 if (outputFormat != null)
@@ -198,6 +195,18 @@ namespace npuzzle
             }
         }
 
+        static Func<byte[], uint> GetIDAStarHeuristic()
+        {
+            var fringePdb = new PatternDatabase("fringe.data");
+            var fringeSymmetries = Symmetries.Where(m => !m.Name.StartsWith("M")).ToArray();
+            var symmetryFringeHeuristic = SymmetryCheckingPdbHeuristic(fringePdb, fringeSymmetries);
+            var cornerPdb = new PatternDatabase("corner.data");
+            var cornerSymmetries = Symmetries.Where(m => true).ToArray();
+            var symmetryCornerHeuristic = SymmetryCheckingPdbHeuristic(cornerPdb, cornerSymmetries);
+            var heuristic = CompositeHeuristic(ManhattanDistance, symmetryFringeHeuristic, symmetryCornerHeuristic);
+            return heuristic;
+        }
+
         static void PrintSolution(byte[][] solution, TextWriter writeLocation)
         {
             writeLocation.WriteLine("\nSolution found! time: {0}, length: {1}, eval: {2}", timer.Elapsed.ToString(timerFormat), solution.Length - 1, nodeCounter);
@@ -222,7 +231,6 @@ namespace npuzzle
             {
                 uint threshold = nextBest;
                 nextBest = uint.MaxValue;
-                //nodesEvaluated += 1;
                 bestPath = IDAStar(initialState, noParent, goal, 0u, threshold);
                 Console.WriteLine();
             }
@@ -323,16 +331,20 @@ namespace npuzzle
             return minMovesRemaning;
         }
 
-        static Func<byte[], uint> SymmetryCheckingPdbHeuristic(PatternDatabase pdb)
+        static Func<byte[], uint> SymmetryCheckingPdbHeuristic(PatternDatabase pdb, Symmetry[] symmetries)
         {
             return state =>
             {
-                return Symmetries.Max(s =>
+                uint best = uint.MinValue;
+                byte[] transformed = new byte[state.Length];
+                foreach (var symmetry in symmetries)
                 {
-                    var transformed = s.ComposeSymmetry(state);
+                    symmetry.ComposeSymmetry(state, transformed);
                     var h = pdb.Evaluate(transformed);
-                    return s.Penalty > h ? 0 : h - s.Penalty;
-                });
+                    var hPenalty = symmetry.Penalty > h ? 0 : h - symmetry.Penalty;
+                    best = hPenalty > best ? hPenalty : best;
+                }
+                return best;
             };
         }
 
@@ -340,7 +352,13 @@ namespace npuzzle
         {
             return state =>
             {
-                return heuristics.Max(h => h(state));
+                uint best = uint.MinValue;
+                foreach (var heuristic in heuristics)
+                {
+                    var h = heuristic(state);
+                    if (h > best) best = h;
+                }
+                return best;
             };
         }
 
@@ -349,9 +367,10 @@ namespace npuzzle
             var fringePdb = new PatternDatabase("fringe.data");
             var fringeOutputs = new List<string>();
             uint best = 0;
+            byte[] symmetryState = new byte[state.Length];
             foreach (var symmetry in Symmetries)
             {
-                var symmetryState = symmetry.ComposeSymmetry(state);
+                symmetry.ComposeSymmetry(state, symmetryState);
                 var h = fringePdb.Evaluate(symmetryState);
                 bool isOriginal = symmetry.Name == "O";
                 string stateString = string.Join(" ", symmetryState.Select(m => string.Format("{0,2}", isOriginal || fringePdb.Pattern.Contains(m) ? m.ToString() : "-")));
@@ -372,7 +391,7 @@ namespace npuzzle
             best = 0;
             foreach (var symmetry in Symmetries)
             {
-                var symmetryState = symmetry.ComposeSymmetry(state);
+                symmetry.ComposeSymmetry(state, symmetryState);
                 var h = cornerPdb.Evaluate(symmetryState);
                 bool isOriginal = symmetry.Name == "O";
                 string stateString = string.Join(" ", symmetryState.Select(m => string.Format("{0,2}", isOriginal || cornerPdb.Pattern.Contains(m) ? m.ToString() : "-")));
@@ -458,14 +477,12 @@ namespace npuzzle
                 Penalty = penalty;
             }
 
-            public byte[] ComposeSymmetry(byte[] state)
+            public void ComposeSymmetry(byte[] state, byte[] symmetry)
             {
-                var symmetry = new byte[state.Length];
                 for (int i = 0; i < symmetry.Length; i += 1)
                 {
                     symmetry[SymmetryMap[i]] = PathMap[state[i]];
                 }
-                return symmetry;
             }
         }
     }
