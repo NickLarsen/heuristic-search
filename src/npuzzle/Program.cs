@@ -301,19 +301,6 @@ namespace npuzzle
             return successor;
         }
 
-        static uint NoHeuristic(byte[] state)
-        {
-            return 0u;
-        }
-
-        static uint HammingDistance(byte[] state)
-        {
-            uint outOfPlace = 0;
-            for(int i = 0; i < state.Length; i += 1)
-                if (state[i] != i) outOfPlace += 1;
-            return outOfPlace;
-        }
-
         static uint ManhattanDistance(byte[] state)
         {
             uint minMovesRemaning = 0;
