@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace npuzzle
 {
@@ -184,6 +185,95 @@ namespace npuzzle
         {
             public int TotalStates { get; set; }
             public int CurrentDepth { get; set; }
+            public int StatesCalculated { get; set; }
+            public bool IsFinished { get; set; }
+        }
+
+        public static PatternDatabase ProcessSymmetries(PatternDatabase pdb, Symmetry[] symmetries, Action<ProcessSymmetryStats> update)
+        {
+            var symmetryValues = new byte[pdb.values.Length];
+            for (int i = 0; i < pdb.offset; i += 1)
+            {
+                symmetryValues[i] = pdb.values[i];
+            }
+            int numElements = pdb.values[0] * pdb.values[1];
+            byte[] state = new byte[numElements];
+            byte[] transformed = new byte[numElements];
+            valuesNotInPattern = Enumerable.Range(0, state.Length).Select(m => (byte)m).Except(pdb.pattern).ToArray();
+            scratchPad = new int[pdb.pattern.Length];
+            var processStats = new ProcessSymmetryStats()
+            {
+                IsFinished = false,
+                TotalStates = symmetryValues.Length - pdb.offset,
+                StatesCalculated = 0,
+            };
+            for (int i = pdb.offset; i < symmetryValues.Length; i += 1)
+            {
+                update(processStats);
+                CalculateStateFromHash(state, i - pdb.offset, pdb);
+                uint best = uint.MinValue;
+                foreach (var symmetry in symmetries)
+                {
+                    symmetry.ComposeSymmetry(state, transformed);
+                    var h = pdb.Evaluate(transformed);
+                    var hPenalty = symmetry.Penalty > h ? 0 : h - symmetry.Penalty;
+                    best = hPenalty > best ? hPenalty : best;
+                }
+                symmetryValues[i] = (byte)best;
+                processStats.StatesCalculated += 1;
+            }
+            processStats.IsFinished = true;
+            update(processStats);
+            var symmetryPdb = new PatternDatabase(symmetryValues);
+            return symmetryPdb;
+        }
+
+        private static byte[] valuesNotInPattern;
+        private static int[] scratchPad;
+        static void CalculateStateFromHash(byte[] state, int hash, PatternDatabase pdb)
+        {
+            for (int i = 0; i < state.Length; i += 1)
+            {
+                state[i] = byte.MaxValue;
+                if (i >= scratchPad.Length) continue;
+                scratchPad[i] = int.MaxValue;
+            }
+            for (int i = pdb.pattern.Length - 1; i >= 0; i -= 1)
+            {
+                int domain = pdb.patternDomains[pdb.pattern[i]];
+                if (domain == 0) continue;
+                scratchPad[i] = hash / domain;
+                hash %= domain;
+            }
+            for (int i = 0; i < scratchPad.Length; i += 1)
+            {
+                int place = scratchPad[i];
+                int unused = 0;
+                for (int j = 0; j < state.Length; j += 1)
+                {
+                    if (state[j] != byte.MaxValue) continue;
+                    if (unused == place)
+                    {
+                        state[j] = pdb.pattern[i];
+                        break;
+                    }
+                    unused += 1;
+                }
+            }
+            int notInValuesIndex = 0;
+            for (int i = 0; i < state.Length; i += 1)
+            {
+                if (state[i] == byte.MaxValue)
+                {
+                    state[i] = valuesNotInPattern[notInValuesIndex];
+                    notInValuesIndex += 1;
+                }
+            }
+        }
+
+        public class ProcessSymmetryStats
+        {
+            public int TotalStates { get; set; }
             public int StatesCalculated { get; set; }
             public bool IsFinished { get; set; }
         }
