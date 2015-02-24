@@ -50,10 +50,8 @@ namespace npuzzle
         static void Debug()
         {
             //CreatePDB(new[] { "build-pdb", "fringe.data", "4", "4", "0,3,7,11,12,13,14,15" });
-            ProcessPdbSymmetries(new[] { "process-pdb-symmetries", "fringe.data", "fringe.symmetries.data" });
             //CreatePDB(new[] { "build-pdb", "corner.data", "4", "4", "0,8,9,10,12,13,14,15" });
-            ProcessPdbSymmetries(new[] { "process-pdb-symmetries", "corner.data", "corner.symmetries.data" });
-            //FastIDAStar();
+            FastIDAStar();
             //MakeCsv(new string[] { "make-csv", @"results\korf15-ida-md-{0}.txt", @"results\korf15-ida-md-fr-{0}.txt", @"results\korf15-ida-md-co-{0}.txt", @"results\korf15-ida-md-fc-{0}.txt"});
             //Symmetry.ExplainSymmetries(KorfPuzzles.Puzzles[78].InitialState);
         }
@@ -151,26 +149,6 @@ namespace npuzzle
             }
         }
 
-        static void ProcessPdbSymmetries(string[] args)
-        {
-            var pdb = new PatternDatabase(args[1]);
-            timer = Stopwatch.StartNew();
-            var symmetryPdb = PatternDatabase.ProcessSymmetries(pdb, Symmetry.N4Symmetries, ShowSymmetryStats);
-            timer.Stop();
-            Console.WriteLine();
-            Console.WriteLine("Completed building Pattern Database.  Saving to {0}", args[2]);
-            symmetryPdb.Save(args[2]);
-        }
-
-        static void ShowSymmetryStats(PatternDatabase.ProcessSymmetryStats stats)
-        {
-            if (stats.IsFinished || (timer.ElapsedMilliseconds - lastMillis) > 1000)
-            {
-                Console.Write("\rtime: {0}, total-states: {1:n0}, eval: {2:n0}", timer.Elapsed.ToString(timerFormat), stats.TotalStates, stats.StatesCalculated);
-                lastMillis = timer.ElapsedMilliseconds;
-            }
-        }
-
         static void DoIDAStar(string[] args)
         {
             if (args.Length > 1)
@@ -220,12 +198,13 @@ namespace npuzzle
         static Func<byte[], uint> GetIDAStarHeuristic()
         {
             var fringePdb = new PatternDatabase("fringe.data");
-            var fringeSymmetries = Symmetry.N4Symmetries.Where(m => !m.Name.StartsWith("M")).ToArray();
-            var symmetryFringeHeuristic = SymmetryCheckingPdbHeuristic(fringePdb, fringeSymmetries);
+            var symmetryFringeHeuristic = SymmetryCheckingPdbHeuristic(fringePdb, Symmetry.N4Symmetries);
             var cornerPdb = new PatternDatabase("corner.data");
-            var cornerSymmetries = Symmetry.N4Symmetries.Where(m => true).ToArray();
-            var symmetryCornerHeuristic = SymmetryCheckingPdbHeuristic(cornerPdb, cornerSymmetries);
+            var symmetryCornerHeuristic = SymmetryCheckingPdbHeuristic(cornerPdb, Symmetry.N4Symmetries);
             var heuristic = CompositeHeuristic(ManhattanDistance, symmetryFringeHeuristic, symmetryCornerHeuristic);
+            //var fringePdb = new PatternDatabase("fringe.symmetries.data");
+            //var cornerPdb = new PatternDatabase("corner.symmetries.data");
+            //var heuristic = CompositeHeuristic(ManhattanDistance, fringePdb.Evaluate, cornerPdb.Evaluate);
             return heuristic;
         }
 
