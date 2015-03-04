@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -49,8 +50,8 @@ namespace npuzzle
 
         static void Debug()
         {
-            //CreatePDB(new[] { "build-pdb", "fringe.data", "4", "4", "0,3,7,11,12,13,14,15" });
-            //CreatePDB(new[] { "build-pdb", "corner.data", "4", "4", "0,8,9,10,12,13,14,15" });
+            //CreatePDB(new[] { "build-pdb", "disjoint1-7.data", "4", "4", "1,2,3,4,5,6,7" });
+            //CreatePDB(new[] { "build-pdb", "disjoint8-15.data", "4", "4", "8,9,10,11,12,13,14,15" });
             FastIDAStar();
             //MakeCsv(new string[] { "make-csv", @"results\korf15-ida-md-{0}.txt", @"results\korf15-ida-md-fr-{0}.txt", @"results\korf15-ida-md-co-{0}.txt", @"results\korf15-ida-md-fc-{0}.txt"});
             //Symmetry.ExplainSymmetries(KorfPuzzles.Puzzles[78].InitialState);
@@ -133,7 +134,7 @@ namespace npuzzle
             byte[] pattern = args[4].Split(',').Select(m => Convert.ToByte(m)).ToArray();
             byte[] goal = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
             timer = Stopwatch.StartNew();
-            var pdb = PatternDatabase.Create(rows, cols, pattern, goal, ShowCreateStats, ExpandState);
+            var pdb = PatternDatabase.Create(rows, cols, pattern, goal, ShowCreateStats, ExpandStateMultipleBlanks);
             timer.Stop();
             Console.WriteLine();
             Console.WriteLine("Completed building Pattern Database.  Saving to {0}", outputFormat);
@@ -197,14 +198,15 @@ namespace npuzzle
 
         static Func<byte[], uint> GetIDAStarHeuristic()
         {
-            var fringePdb = new PatternDatabase("fringe.data");
-            var symmetryFringeHeuristic = SymmetryCheckingPdbHeuristic(fringePdb, Symmetry.N4Symmetries);
-            var cornerPdb = new PatternDatabase("corner.data");
-            var symmetryCornerHeuristic = SymmetryCheckingPdbHeuristic(cornerPdb, Symmetry.N4Symmetries);
-            var heuristic = CompositeHeuristic(ManhattanDistance, symmetryFringeHeuristic, symmetryCornerHeuristic);
-            //var fringePdb = new PatternDatabase("fringe.symmetries.data");
-            //var cornerPdb = new PatternDatabase("corner.symmetries.data");
-            //var heuristic = CompositeHeuristic(ManhattanDistance, fringePdb.Evaluate, cornerPdb.Evaluate);
+            //var fringePdb = new PatternDatabase("fringe.data");
+            //var symmetryFringeHeuristic = SymmetryCheckingPdbHeuristic(fringePdb, Symmetry.N4Symmetries);
+            //var cornerPdb = new PatternDatabase("corner.data");
+            //var symmetryCornerHeuristic = SymmetryCheckingPdbHeuristic(cornerPdb, Symmetry.N4Symmetries);
+            //var heuristic = CompositeHeuristic(ManhattanDistance, symmetryFringeHeuristic, symmetryCornerHeuristic);
+            var _1to7 = new PatternDatabase("disjoint1-7.data");
+            var _8to15 = new PatternDatabase("disjoint8-15.data");
+            var additivePdbHeuristic = AdditivePdbHeuristic(_1to7, _8to15);
+            var heuristic = CompositeHeuristic(ManhattanDistance, additivePdbHeuristic);
             return heuristic;
         }
 
@@ -241,7 +243,7 @@ namespace npuzzle
         {
             if (AreSame(current, goal)) return new Stack<byte[]>(new[] { current });
             var newCost = cost + 1;
-            var successors = ExpandState(current);
+            var successors = ExpandStateOneBlank(current);
             foreach (var successor in successors)
             {
                 if (AreSame(successor, parent)) continue;
@@ -279,15 +281,29 @@ namespace npuzzle
             return true;
         }
 
-        static List<byte[]> ExpandState(byte[] state)
+        static List<byte[]> ExpandStateOneBlank(byte[] state)
         {
-            var successors = new List<byte[]>();
+            var successors = new List<byte[]>(64);
             int e = 0;
             while (state[e] != 0) e += 1;
             if (e > 3) successors.Add(CreateSuccessor(state, e, e - 4)); // up
             if (e % 4 > 0) successors.Add(CreateSuccessor(state, e, e - 1)); // left
             if (e % 4 < 3) successors.Add(CreateSuccessor(state, e, e + 1)); // right
             if (e < 12) successors.Add(CreateSuccessor(state, e, e + 4)); // down
+            return successors;
+        }
+
+        static List<byte[]> ExpandStateMultipleBlanks(byte[] state)
+        {
+            var successors = new List<byte[]>(64);
+            for (int e = 0; e < state.Length; e += 1)
+            {
+                if (state[e] != 0) continue;
+                if (e > 3 && state[e - 4] != 0) successors.Add(CreateSuccessor(state, e, e - 4)); // up
+                if (e % 4 > 0 && state[e - 1] != 0) successors.Add(CreateSuccessor(state, e, e - 1)); // left
+                if (e % 4 < 3 && state[e + 1] != 0) successors.Add(CreateSuccessor(state, e, e + 1)); // right
+                if (e < 12 && state[e + 4] != 0) successors.Add(CreateSuccessor(state, e, e + 4)); // down
+            }
             return successors;
         }
 
@@ -331,6 +347,19 @@ namespace npuzzle
                     var h = pdb.Evaluate(transformed);
                     var hPenalty = symmetry.Penalty > h ? 0 : h - symmetry.Penalty;
                     best = hPenalty > best ? hPenalty : best;
+                }
+                return best;
+            };
+        }
+
+        static Func<byte[], uint> AdditivePdbHeuristic(params PatternDatabase[] pdbs)
+        {
+            return state =>
+            {
+                uint best = uint.MinValue;
+                for(int i = 0; i < pdbs.Length; i += 1)
+                {
+                    best += pdbs[i].Evaluate(state);
                 }
                 return best;
             };

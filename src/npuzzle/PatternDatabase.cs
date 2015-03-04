@@ -1,6 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 
 namespace npuzzle
 {
@@ -55,7 +56,9 @@ namespace npuzzle
             byte[] pdb = InitializePdb(rows, cols, pattern);
             int offset = pdb[2] + 3;
             var openList = CreateOpenList(256); // only works because incremental step cost
-            openList[0].AddFirst(goal);
+            byte whoCaresPiece = pattern.Contains((byte)0) ? byte.MaxValue : (byte)0;
+            byte[] whoCaresGoal = goal.Select(m => pattern.Contains(m) ? m : whoCaresPiece).ToArray();
+            openList[0].AddFirst(whoCaresGoal);
             var createStats = new CreateStats()
             {
                 CurrentDepth = 0,
