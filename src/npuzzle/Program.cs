@@ -50,10 +50,29 @@ namespace npuzzle
 
         static void Debug()
         {
-            //CreatePDB(new[] { "build-pdb", "disjoint1-7.data", "4", "4", "1,2,3,4,5,6,7" });
-            //CreatePDB(new[] { "build-pdb", "disjoint8-15.data", "4", "4", "8,9,10,11,12,13,14,15" });
-            FastIDAStar();
-            //MakeCsv(new string[] { "make-csv", @"results\korf15-ida-md-{0}.txt", @"results\korf15-ida-md-fr-{0}.txt", @"results\korf15-ida-md-co-{0}.txt", @"results\korf15-ida-md-fc-{0}.txt"});
+            var totalAverage = KorfPuzzles.Puzzles.Average(m => (double)m.Actual);
+            Console.WriteLine(totalAverage);
+            var mdAvg = KorfPuzzles.Puzzles.Average(m => (double)ManhattanDistance(m.InitialState));
+            Console.WriteLine(mdAvg);
+            var vertLeft = new PatternDatabase("disjoint-vert-left.data");
+            var valueCounts = vertLeft.GetValueCounts();
+            foreach (var source in valueCounts.OrderBy(m => m.Key))
+            {
+                Console.WriteLine("{0}: {1}", source.Key, source.Value);
+            }
+            var vertRight = new PatternDatabase("disjoint-vert-right.data");
+            valueCounts = vertRight.GetValueCounts();
+            foreach (var source in valueCounts.OrderBy(m => m.Key))
+            {
+                Console.WriteLine("{0}: {1}", source.Key, source.Value);
+            }
+            var additivePdbHeuristic = AdditivePdbHeuristic(vertLeft, vertRight);
+            var djAv = KorfPuzzles.Puzzles.Average(m => (double)additivePdbHeuristic(m.InitialState));
+            Console.WriteLine(djAv);
+            //CreatePDB(new[] { "build-pdb", "disjoint-vert-left.data", "4", "4", "1,4,5,8,9,12,13" });
+            //CreatePDB(new[] { "build-pdb", "disjoint-vert-right.data", "4", "4", "2,3,6,7,10,11,14,15" });
+            //FastIDAStar();
+            //MakeCsv(new string[] { "make-csv", @"results\MD-FR-CO\korf15-ida-md-fr-co-{0}.txt", @"results\MD-DJ\korf15-disjoint-{0}.txt"});
             //Symmetry.ExplainSymmetries(KorfPuzzles.Puzzles[78].InitialState);
         }
 
@@ -134,7 +153,7 @@ namespace npuzzle
             byte[] pattern = args[4].Split(',').Select(m => Convert.ToByte(m)).ToArray();
             byte[] goal = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
             timer = Stopwatch.StartNew();
-            var pdb = PatternDatabase.Create(rows, cols, pattern, goal, ShowCreateStats, ExpandStateMultipleBlanks);
+            var pdb = PatternDatabase.Create(rows, cols, pattern, goal, ShowCreateStats, ExpandStateFloodBlank);
             timer.Stop();
             Console.WriteLine();
             Console.WriteLine("Completed building Pattern Database.  Saving to {0}", outputFormat);
@@ -203,10 +222,12 @@ namespace npuzzle
             //var cornerPdb = new PatternDatabase("corner.data");
             //var symmetryCornerHeuristic = SymmetryCheckingPdbHeuristic(cornerPdb, Symmetry.N4Symmetries);
             //var heuristic = CompositeHeuristic(ManhattanDistance, symmetryFringeHeuristic, symmetryCornerHeuristic);
-            var _1to7 = new PatternDatabase("disjoint1-7.data");
-            var _8to15 = new PatternDatabase("disjoint8-15.data");
-            var additivePdbHeuristic = AdditivePdbHeuristic(_1to7, _8to15);
-            var heuristic = CompositeHeuristic(ManhattanDistance, additivePdbHeuristic);
+            //var _1to7 = new PatternDatabase("disjoint1-7.data");
+            //var _8to15 = new PatternDatabase("disjoint8-15.data");
+            //var heuristic = AdditivePdbHeuristic(_1to7, _8to15);
+            var vertLeft = new PatternDatabase("disjoint-vert-left.data");
+            var vertRight = new PatternDatabase("disjoint-vert-right.data");
+            var heuristic = AdditivePdbHeuristic(vertLeft, vertRight);
             return heuristic;
         }
 
@@ -283,7 +304,7 @@ namespace npuzzle
 
         static List<byte[]> ExpandStateOneBlank(byte[] state)
         {
-            var successors = new List<byte[]>(64);
+            var successors = new List<byte[]>(4);
             int e = 0;
             while (state[e] != 0) e += 1;
             if (e > 3) successors.Add(CreateSuccessor(state, e, e - 4)); // up
@@ -292,21 +313,6 @@ namespace npuzzle
             if (e < 12) successors.Add(CreateSuccessor(state, e, e + 4)); // down
             return successors;
         }
-
-        static List<byte[]> ExpandStateMultipleBlanks(byte[] state)
-        {
-            var successors = new List<byte[]>(64);
-            for (int e = 0; e < state.Length; e += 1)
-            {
-                if (state[e] != 0) continue;
-                if (e > 3 && state[e - 4] != 0) successors.Add(CreateSuccessor(state, e, e - 4)); // up
-                if (e % 4 > 0 && state[e - 1] != 0) successors.Add(CreateSuccessor(state, e, e - 1)); // left
-                if (e % 4 < 3 && state[e + 1] != 0) successors.Add(CreateSuccessor(state, e, e + 1)); // right
-                if (e < 12 && state[e + 4] != 0) successors.Add(CreateSuccessor(state, e, e + 4)); // down
-            }
-            return successors;
-        }
-
         static byte[] CreateSuccessor(byte[] state, int a, int b)
         {
             var successor = new byte[state.Length];
@@ -314,7 +320,53 @@ namespace npuzzle
             {
                 successor[i] = state[i];
             }
-            successor.Swap(a,b);
+            successor.Swap(a, b);
+            return successor;
+        }
+
+        static List<byte[]> ExpandStateFloodBlank(byte[] state)
+        {
+            var successors = new List<byte[]>(64);
+            var blanks = new byte[state.Length];
+            bool madeChange = true;
+            int zero = -1;
+            while (madeChange)
+            {
+                madeChange = false;
+                for (int i = 0; i < state.Length; i += 1)
+                {
+                    if (state[i] == 0) zero = i;
+                    if (blanks[i] == 1 || (i == zero && blanks[i] == 0))
+                    {
+                        if (i > 3 && state[i - 4] == byte.MaxValue && blanks[i - 4] == 0) blanks[i - 4] = 1; // up
+                        if (i % 4 > 0 && state[i - 1] == byte.MaxValue && blanks[i - 1] == 0) blanks[i - 1] = 1; // left
+                        if (i % 4 < 3 && state[i + 1] == byte.MaxValue && blanks[i + 1] == 0) blanks[i + 1] = 1; // right
+                        if (i < 12 && state[i + 4] == byte.MaxValue && blanks[i + 4] == 0) blanks[i + 4] = 1; // down
+                        blanks[i] = 2;
+                        madeChange = true;
+                    }
+                }
+            }
+
+            for (int e = 0; e < state.Length; e += 1)
+            {
+                if (blanks[e] != 2) continue;
+                if (e > 3 && blanks[e - 4] != 2) successors.Add(CreateFloodSuccessor(state, zero, e, e - 4)); // up
+                if (e % 4 > 0 && blanks[e - 1] != 2) successors.Add(CreateFloodSuccessor(state, zero, e, e - 1)); // left
+                if (e % 4 < 3 && blanks[e + 1] != 2) successors.Add(CreateFloodSuccessor(state, zero, e, e + 1)); // right
+                if (e < 12 && blanks[e + 4] != 2) successors.Add(CreateFloodSuccessor(state, zero, e, e + 4)); // down
+            }
+            return successors;
+        }
+        static byte[] CreateFloodSuccessor(byte[] state, int zero, int a, int b)
+        {
+            var successor = new byte[state.Length];
+            for (int i = 0; i < successor.Length; i += 1)
+            {
+                successor[i] = state[i];
+            }
+            successor.Swap(zero, a);
+            successor.Swap(a, b);
             return successor;
         }
 

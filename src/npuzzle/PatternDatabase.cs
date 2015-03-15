@@ -51,14 +51,18 @@ namespace npuzzle
             return value;
         }
 
+        public Dictionary<byte, int> GetValueCounts()
+        {
+            return values.GroupBy(m => m).ToDictionary(m => m.Key, m => m.Count());
+        }
+
         public static PatternDatabase Create(int rows, int cols, byte[] pattern, byte[] goal, Action<CreateStats> update, Func<byte[],List<byte[]>> expand)
         {
             byte[] pdb = InitializePdb(rows, cols, pattern);
             int offset = pdb[2] + 3;
             var openList = CreateOpenList(256); // only works because incremental step cost
-            byte whoCaresPiece = pattern.Contains((byte)0) ? byte.MaxValue : (byte)0;
-            byte[] whoCaresGoal = goal.Select(m => pattern.Contains(m) ? m : whoCaresPiece).ToArray();
-            openList[0].AddFirst(whoCaresGoal);
+            byte[] patternGoal = goal.Select(m => m == 0 || pattern.Contains(m) ? m : byte.MaxValue).ToArray();
+            openList[0].AddFirst(patternGoal);
             var createStats = new CreateStats()
             {
                 CurrentDepth = 0,
@@ -172,6 +176,7 @@ namespace npuzzle
             for (int i = 0; i < state.Length; i += 1)
             {
                 var value = state[i];
+                if (value == byte.MaxValue) continue;
                 var domain = patternDomains[value];
                 if (domain > 0)
                 {
