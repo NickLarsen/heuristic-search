@@ -1,4 +1,7 @@
-﻿namespace npuzzle
+﻿using System;
+using System.Linq;
+
+namespace npuzzle
 {
     class KorfPuzzles
     {
@@ -113,5 +116,10 @@
         public byte[] InitialState { get; set; }
         public int Actual { get; set; }
         public ulong KorfNodesExpanded { get; set; }
+
+        public byte[] Goal
+        {
+            get { return Enumerable.Range(0, InitialState.Length).Select(Convert.ToByte).ToArray(); }
+        }
     }
 }

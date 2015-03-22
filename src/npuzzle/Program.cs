@@ -17,73 +17,20 @@ namespace npuzzle
 
         static void Main(string[] args)
         {
-            if (args.Length > 0)
-            {
-                try
-                {
-                    switch (args[0])
-                    {
-                        case "ida*":
-                            DoIDAStar(args);
-                            break;
-                        case "make-csv":
-                            MakeCsv(args);
-                            break;
-                        case "compare-heuristics":
-                            CompareHeuristics(args);
-                            break;
-                        case "build-pdb":
-                            CreatePDB(args);
-                            break;
-                    }
-                }
-                catch (Exception e)
-                {
-                    Console.WriteLine(e.ToString());
-                }
-            }
-            else
-            {
-                Debug();
-            }
-        }
-
-        static void Debug()
-        {
-            var totalAverage = KorfPuzzles.Puzzles.Average(m => (double)m.Actual);
-            Console.WriteLine(totalAverage);
-            var mdAvg = KorfPuzzles.Puzzles.Average(m => (double)ManhattanDistance(m.InitialState));
-            Console.WriteLine(mdAvg);
-            var vertLeft = new PatternDatabase("disjoint-vert-left.data");
-            var valueCounts = vertLeft.GetValueCounts();
-            foreach (var source in valueCounts.OrderBy(m => m.Key))
-            {
-                Console.WriteLine("{0}: {1}", source.Key, source.Value);
-            }
-            var vertRight = new PatternDatabase("disjoint-vert-right.data");
-            valueCounts = vertRight.GetValueCounts();
-            foreach (var source in valueCounts.OrderBy(m => m.Key))
-            {
-                Console.WriteLine("{0}: {1}", source.Key, source.Value);
-            }
-            var additivePdbHeuristic = AdditivePdbHeuristic(vertLeft, vertRight);
-            var djAv = KorfPuzzles.Puzzles.Average(m => (double)additivePdbHeuristic(m.InitialState));
-            Console.WriteLine(djAv);
-            //CreatePDB(new[] { "build-pdb", "disjoint-vert-left.data", "4", "4", "1,4,5,8,9,12,13" });
-            //CreatePDB(new[] { "build-pdb", "disjoint-vert-right.data", "4", "4", "2,3,6,7,10,11,14,15" });
+            //CreatePDB(new[] { "build-pdb", "24dj-tr.data", "5", "5", "3,4,8,9,13,14" });
+            CreatePDB(new[] { "build-pdb", "24dj-br.data", "5", "5", "17,18,19,22,23,24" });
+            //CreatePDB(new[] { "build-pdb", "24dj-bl.data", "5", "5", "10,11,15,16,20,21" });
+            //CreatePDB(new[] { "build-pdb", "24dj-tl.data", "5", "5", "1,2,5,6,7,12" });
             //FastIDAStar();
-            //MakeCsv(new string[] { "make-csv", @"results\MD-FR-CO\korf15-ida-md-fr-co-{0}.txt", @"results\MD-DJ\korf15-disjoint-{0}.txt"});
-            //Symmetry.ExplainSymmetries(KorfPuzzles.Puzzles[78].InitialState);
         }
 
         static void FastIDAStar()
         {
-            byte[] goal = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
             var puzzle = KorfPuzzles.Puzzles[87];
             Console.WriteLine("\n\n{0}: < {1} >, best: {2:n0}, korf: {3:n0}", puzzle.Number, string.Join(",", puzzle.InitialState), puzzle.Actual, puzzle.KorfNodesExpanded);
             var heuristic = GetIDAStarHeuristic();
             timer = Stopwatch.StartNew();
-            var solution = IDAStarDriver(puzzle.InitialState, goal, heuristic);
+            var solution = IDAStarDriver(puzzle.InitialState, puzzle.Goal, heuristic);
             timer.Stop();
             if (solution.Length > 0)
             {
@@ -92,53 +39,6 @@ namespace npuzzle
             else
             {
                 Console.WriteLine("\nNo solution possible.");
-            }
-        }
-
-        static void MakeCsv(string[] args)
-        {
-            var data = new ulong[KorfPuzzles.Puzzles.Length][];
-            foreach (var korfPuzzle in KorfPuzzles.Puzzles)
-            {
-                int puzzleIndex = korfPuzzle.Number - 1;
-                data[puzzleIndex] = new ulong[args.Length];
-                data[puzzleIndex][0] = Convert.ToUInt64(korfPuzzle.Number);
-                for (int i = 1; i < args.Length; i += 1)
-                {
-                    string filename = string.Format(args[i], korfPuzzle.Number);
-                    var importantLine = File.ReadAllLines(filename)[1];
-                    var evalnodes = Convert.ToUInt64(importantLine.Substring(54));
-                    data[puzzleIndex][i] = evalnodes;
-                }
-            }
-            var outputlines = data.Select(m => string.Join(",", m));
-            File.WriteAllLines("output.csv", outputlines);
-        }
-
-        static void CompareHeuristics(string[] args)
-        {
-            var fringePdb = new PatternDatabase("fringe.data");
-            var results = new Tuple<int, uint, uint, uint>[KorfPuzzles.Puzzles.Length];
-            foreach (var puzzle in KorfPuzzles.Puzzles)
-            {
-                uint hMD = ManhattanDistance(puzzle.InitialState);
-                uint hFringe = fringePdb.Evaluate(puzzle.InitialState);
-                uint better = hFringe > hMD ? hFringe - hMD : 0;
-                results[puzzle.Number - 1] = Tuple.Create(puzzle.Number, hMD, hFringe, better);
-            }
-            foreach (var test in results.OrderBy(m => m.Item4))
-            {
-                if (test.Item2 > test.Item3)
-                {
-                    Console.BackgroundColor = ConsoleColor.DarkRed;
-                }
-                else if (test.Item2 < test.Item3)
-                {
-                    Console.BackgroundColor = ConsoleColor.DarkGreen;
-                }
-                Console.Write("{0,3}:  hMD={1,3}  n={2,3}  improve:{3,3}", test.Item1, test.Item2, test.Item3, test.Item4);
-                Console.ResetColor();
-                Console.WriteLine();
             }
         }
 
@@ -151,7 +51,7 @@ namespace npuzzle
             int rows = Convert.ToInt32(args[2]);
             int cols = Convert.ToInt32(args[3]);
             byte[] pattern = args[4].Split(',').Select(m => Convert.ToByte(m)).ToArray();
-            byte[] goal = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
+            byte[] goal = Enumerable.Range(0, rows * cols).Select(Convert.ToByte).ToArray();
             timer = Stopwatch.StartNew();
             var pdb = PatternDatabase.Create(rows, cols, pattern, goal, ShowCreateStats, ExpandStateFloodBlank);
             timer.Stop();
@@ -180,7 +80,6 @@ namespace npuzzle
 
         static void DoPuzzles(KorfPuzzle[] puzzles, Func<byte[], byte[], Func<byte[], uint>, byte[][]> algorithm)
         {
-            byte[] goal = { 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
             var heuristic = GetIDAStarHeuristic();
             foreach (var korfPuzzle in puzzles)
             {
@@ -194,7 +93,7 @@ namespace npuzzle
                 Console.WriteLine("\n\n{0}: < {1} >", korfPuzzle.Number, string.Join(",", korfPuzzle.InitialState));
                 Console.WriteLine("actual solution length: {0}, korf nodes evaluated: {1:n0}", korfPuzzle.Actual, korfPuzzle.KorfNodesExpanded);
                 timer = Stopwatch.StartNew();
-                var solution = algorithm(korfPuzzle.InitialState, goal, heuristic);
+                var solution = algorithm(korfPuzzle.InitialState, korfPuzzle.Goal, heuristic);
                 timer.Stop();
                 if (solution.Length > 0)
                 {
@@ -217,14 +116,6 @@ namespace npuzzle
 
         static Func<byte[], uint> GetIDAStarHeuristic()
         {
-            //var fringePdb = new PatternDatabase("fringe.data");
-            //var symmetryFringeHeuristic = SymmetryCheckingPdbHeuristic(fringePdb, Symmetry.N4Symmetries);
-            //var cornerPdb = new PatternDatabase("corner.data");
-            //var symmetryCornerHeuristic = SymmetryCheckingPdbHeuristic(cornerPdb, Symmetry.N4Symmetries);
-            //var heuristic = CompositeHeuristic(ManhattanDistance, symmetryFringeHeuristic, symmetryCornerHeuristic);
-            //var _1to7 = new PatternDatabase("disjoint1-7.data");
-            //var _8to15 = new PatternDatabase("disjoint8-15.data");
-            //var heuristic = AdditivePdbHeuristic(_1to7, _8to15);
             var vertLeft = new PatternDatabase("disjoint-vert-left.data");
             var vertRight = new PatternDatabase("disjoint-vert-right.data");
             var heuristic = AdditivePdbHeuristic(vertLeft, vertRight);
@@ -249,22 +140,23 @@ namespace npuzzle
             idash = h;
             nextBest = idash(initialState);
             nodeCounter = 1;
+            int boxSize = (int)Math.Sqrt(initialState.Length);
             noParent = new byte[initialState.Length];
             var bestPath = noSolution;
             while (bestPath == noSolution && nextBest != uint.MaxValue)
             {
                 uint threshold = nextBest;
                 nextBest = uint.MaxValue;
-                bestPath = IDAStar(initialState, noParent, goal, 0u, threshold);
+                bestPath = IDAStar(initialState, boxSize, noParent, goal, 0u, threshold);
                 Console.WriteLine();
             }
             return bestPath.ToArray();
         }
-        static Stack<byte[]> IDAStar(byte[] current, byte[] parent, byte[] goal, uint cost, uint upperbound)
+        static Stack<byte[]> IDAStar(byte[] current, int boxSize, byte[] parent, byte[] goal, uint cost, uint upperbound)
         {
             if (AreSame(current, goal)) return new Stack<byte[]>(new[] { current });
             var newCost = cost + 1;
-            var successors = ExpandStateOneBlank(current);
+            var successors = ExpandStateOneBlank(boxSize, current);
             foreach (var successor in successors)
             {
                 if (AreSame(successor, parent)) continue;
@@ -276,7 +168,7 @@ namespace npuzzle
                 }
                 else
                 {
-                    var p = IDAStar(successor, current, goal, newCost, upperbound);
+                    var p = IDAStar(successor, boxSize, current, goal, newCost, upperbound);
                     if (p != noSolution)
                     {
                         p.Push(current);
@@ -287,7 +179,7 @@ namespace npuzzle
             if (parent == noParent || (timer.ElapsedMilliseconds - lastMillis) > 1000)
             {
                 var nextBestDisplay = nextBest == uint.MaxValue ? "inf" : nextBest.ToString();
-                Console.Write("\rtime: {0}, upperbound: {1}, nextBest: {2}, eval: {3:n0}     ", timer.Elapsed.ToString(timerFormat), upperbound, nextBestDisplay, nodeCounter);
+                Console.Write("\rtime: {0}, upperbound: {1}, nextBest: {2}, eval: {3:n0}", timer.Elapsed.ToString(timerFormat), upperbound, nextBestDisplay, nodeCounter);
                 lastMillis = timer.ElapsedMilliseconds;
             }
             return noSolution;
@@ -302,15 +194,15 @@ namespace npuzzle
             return true;
         }
 
-        static List<byte[]> ExpandStateOneBlank(byte[] state)
+        static List<byte[]> ExpandStateOneBlank(int boxSize, byte[] state)
         {
             var successors = new List<byte[]>(4);
             int e = 0;
             while (state[e] != 0) e += 1;
-            if (e > 3) successors.Add(CreateSuccessor(state, e, e - 4)); // up
-            if (e % 4 > 0) successors.Add(CreateSuccessor(state, e, e - 1)); // left
-            if (e % 4 < 3) successors.Add(CreateSuccessor(state, e, e + 1)); // right
-            if (e < 12) successors.Add(CreateSuccessor(state, e, e + 4)); // down
+            if (e > (boxSize - 1)) successors.Add(CreateSuccessor(state, e, e - boxSize)); // up
+            if (e % boxSize > 0) successors.Add(CreateSuccessor(state, e, e - 1)); // left
+            if (e % boxSize < (boxSize - 1)) successors.Add(CreateSuccessor(state, e, e + 1)); // right
+            if (e < (state.Length - boxSize)) successors.Add(CreateSuccessor(state, e, e + boxSize)); // down
             return successors;
         }
         static byte[] CreateSuccessor(byte[] state, int a, int b)
@@ -324,9 +216,10 @@ namespace npuzzle
             return successor;
         }
 
-        static List<byte[]> ExpandStateFloodBlank(byte[] state)
+        static List<byte[]> ExpandStateFloodBlank(int rows, int cols, byte[] state)
         {
-            var successors = new List<byte[]>(64);
+            int boxSize = rows; // TODO: rewrite this to actually use both rows and cols
+            var successors = new List<byte[]>(4 * boxSize * boxSize);
             var blanks = new byte[state.Length];
             bool madeChange = true;
             int zero = -1;
@@ -338,10 +231,10 @@ namespace npuzzle
                     if (state[i] == 0) zero = i;
                     if (blanks[i] == 1 || (i == zero && blanks[i] == 0))
                     {
-                        if (i > 3 && state[i - 4] == byte.MaxValue && blanks[i - 4] == 0) blanks[i - 4] = 1; // up
-                        if (i % 4 > 0 && state[i - 1] == byte.MaxValue && blanks[i - 1] == 0) blanks[i - 1] = 1; // left
-                        if (i % 4 < 3 && state[i + 1] == byte.MaxValue && blanks[i + 1] == 0) blanks[i + 1] = 1; // right
-                        if (i < 12 && state[i + 4] == byte.MaxValue && blanks[i + 4] == 0) blanks[i + 4] = 1; // down
+                        if (i > (boxSize - 1) && state[i - boxSize] == byte.MaxValue && blanks[i - boxSize] == 0) blanks[i - boxSize] = 1; // up
+                        if (i % boxSize > 0 && state[i - 1] == byte.MaxValue && blanks[i - 1] == 0) blanks[i - 1] = 1; // left
+                        if (i % boxSize < (boxSize - 1) && state[i + 1] == byte.MaxValue && blanks[i + 1] == 0) blanks[i + 1] = 1; // right
+                        if (i < (state.Length - boxSize) && state[i + boxSize] == byte.MaxValue && blanks[i + boxSize] == 0) blanks[i + boxSize] = 1; // down
                         blanks[i] = 2;
                         madeChange = true;
                     }
@@ -351,10 +244,10 @@ namespace npuzzle
             for (int e = 0; e < state.Length; e += 1)
             {
                 if (blanks[e] != 2) continue;
-                if (e > 3 && blanks[e - 4] != 2) successors.Add(CreateFloodSuccessor(state, zero, e, e - 4)); // up
-                if (e % 4 > 0 && blanks[e - 1] != 2) successors.Add(CreateFloodSuccessor(state, zero, e, e - 1)); // left
-                if (e % 4 < 3 && blanks[e + 1] != 2) successors.Add(CreateFloodSuccessor(state, zero, e, e + 1)); // right
-                if (e < 12 && blanks[e + 4] != 2) successors.Add(CreateFloodSuccessor(state, zero, e, e + 4)); // down
+                if (e > (boxSize - 1) && blanks[e - boxSize] != 2) successors.Add(CreateFloodSuccessor(state, zero, e, e - boxSize)); // up
+                if (e % boxSize > 0 && blanks[e - 1] != 2) successors.Add(CreateFloodSuccessor(state, zero, e, e - 1)); // left
+                if (e % boxSize < (boxSize - 1) && blanks[e + 1] != 2) successors.Add(CreateFloodSuccessor(state, zero, e, e + 1)); // right
+                if (e < (state.Length - boxSize) && blanks[e + boxSize] != 2) successors.Add(CreateFloodSuccessor(state, zero, e, e + boxSize)); // down
             }
             return successors;
         }
@@ -370,40 +263,6 @@ namespace npuzzle
             return successor;
         }
 
-        static uint ManhattanDistance(byte[] state)
-        {
-            uint minMovesRemaning = 0;
-            for (uint i = 0; i < state.Length; i += 1)
-            {
-                byte value = state[i];
-                if (value == 0 || value == byte.MaxValue) continue;
-                uint ar = value / 4u;
-                uint er = i / 4u;
-                minMovesRemaning += ar > er ? ar - er : er - ar;
-                uint ac = value % 4u;
-                uint ec = i % 4u;
-                minMovesRemaning += ac > ec ? ac - ec : ec - ac;
-            }
-            return minMovesRemaning;
-        }
-
-        static Func<byte[], uint> SymmetryCheckingPdbHeuristic(PatternDatabase pdb, Symmetry[] symmetries)
-        {
-            return state =>
-            {
-                uint best = uint.MinValue;
-                byte[] transformed = new byte[state.Length];
-                foreach (var symmetry in symmetries)
-                {
-                    symmetry.ComposeSymmetry(state, transformed);
-                    var h = pdb.Evaluate(transformed);
-                    var hPenalty = symmetry.Penalty > h ? 0 : h - symmetry.Penalty;
-                    best = hPenalty > best ? hPenalty : best;
-                }
-                return best;
-            };
-        }
-
         static Func<byte[], uint> AdditivePdbHeuristic(params PatternDatabase[] pdbs)
         {
             return state =>
@@ -412,20 +271,6 @@ namespace npuzzle
                 for(int i = 0; i < pdbs.Length; i += 1)
                 {
                     best += pdbs[i].Evaluate(state);
-                }
-                return best;
-            };
-        }
-
-        static Func<byte[],uint> CompositeHeuristic(params Func<byte[], uint>[] heuristics)
-        {
-            return state =>
-            {
-                uint best = uint.MinValue;
-                foreach (var heuristic in heuristics)
-                {
-                    var h = heuristic(state);
-                    if (h > best) best = h;
                 }
                 return best;
             };

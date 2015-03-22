@@ -56,7 +56,7 @@ namespace npuzzle
             return values.GroupBy(m => m).ToDictionary(m => m.Key, m => m.Count());
         }
 
-        public static PatternDatabase Create(int rows, int cols, byte[] pattern, byte[] goal, Action<CreateStats> update, Func<byte[],List<byte[]>> expand)
+        public static PatternDatabase Create(int rows, int cols, byte[] pattern, byte[] goal, Action<CreateStats> update, Func<int, int, byte[],List<byte[]>> expand)
         {
             byte[] pdb = InitializePdb(rows, cols, pattern);
             int offset = pdb[2] + 3;
@@ -86,7 +86,7 @@ namespace npuzzle
                     update(createStats);
                     var state = nodes.First.Value;
                     nodes.RemoveFirst();
-                    var successors = expand(state);
+                    var successors = expand(rows, cols, state);
                     foreach (var successor in successors)
                     {
                         var key = GetPatternKey(successor, patternDomain, cValues) + offset;
