@@ -5,7 +5,7 @@ namespace npuzzle
 {
     class KorfPuzzles
     {
-        public static KorfPuzzle[] Puzzles =
+        public static KorfPuzzle[] Puzzles15 =
         {
             new KorfPuzzle { Number = 1, InitialState = new byte[] { 14, 13, 15, 7, 11, 12, 9, 5, 6, 0, 2, 1, 4, 8, 10, 3 }, Actual = 57, KorfNodesExpanded = 276361933 },
             new KorfPuzzle { Number = 2, InitialState = new byte[] { 13, 5, 4, 10, 9, 12, 8, 14, 2, 3, 7, 1, 0, 15, 11, 6 }, Actual = 55, KorfNodesExpanded = 15300442 },
@@ -107,6 +107,60 @@ namespace npuzzle
             new KorfPuzzle { Number = 98, InitialState = new byte[] { 0, 11, 3, 12, 5, 2, 1, 9, 8, 10, 14, 15, 7, 4, 13, 6 }, Actual = 54, KorfNodesExpanded = 183526883 },
             new KorfPuzzle { Number = 99, InitialState = new byte[] { 7, 15, 4, 0, 10, 9, 2, 5, 12, 11, 13, 6, 1, 3, 14, 8 }, Actual = 57, KorfNodesExpanded = 83477694 },
             new KorfPuzzle { Number = 100, InitialState = new byte[] { 11, 4, 0, 8, 6, 10, 5, 13, 12, 7, 14, 3, 1, 2, 9, 15 }, Actual = 54, KorfNodesExpanded = 67880056 },
+        };
+
+        public static KorfPuzzle[] Puzzles24 = 
+        {
+            new KorfPuzzle { Number = 1, InitialState = new byte[] { 14,5,9,2,18,8,23,19,12,17,15,0,10,20,4,6,11,21,1,7,24,3,16,22,13 }, Actual = 95, KorfNodesExpanded = 2031102635 },
+            new KorfPuzzle { Number = 2, InitialState = new byte[] { 16,5,1,12,6,24,17,9,2,22,4,10,13,18,19,20,0,23,7,21,15,11,8,3,14 }, Actual = 96, KorfNodesExpanded = 211884984525 },
+            new KorfPuzzle { Number = 3, InitialState = new byte[] { 6,0,24,14,8,5,21,19,9,17,16,20,10,13,2,15,11,22,1,3,7,23,4,18,12 }, Actual = 97, KorfNodesExpanded = 21148144928 },
+            new KorfPuzzle { Number = 4, InitialState = new byte[] { 18,14,0,9,8,3,7,19,2,15,5,12,1,13,24,23,4,21,10,20,16,22,11,6,17 }, Actual = 98, KorfNodesExpanded = 10991471966 },
+            new KorfPuzzle { Number = 5, InitialState = new byte[] { 17,1,20,9,16,2,22,19,14,5,15,21,0,3,24,23,18,13,12,7,10,8,6,4,11 }, Actual = 100, KorfNodesExpanded = 2899007625 },
+            new KorfPuzzle { Number = 6, InitialState = new byte[] { 2,0,10,19,1,4,16,3,15,20,22,9,6,18,5,13,12,21,8,17,23,11,24,7,14 }, Actual = 101, KorfNodesExpanded = 103460814368 },
+            new KorfPuzzle { Number = 7, InitialState = new byte[] { 21,22,15,9,24,12,16,23,2,8,5,18,17,7,10,14,13,4,0,6,20,11,3,1,19 }, Actual = 104, KorfNodesExpanded = 106321592792 },
+            new KorfPuzzle { Number = 8, InitialState = new byte[] { 7,13,11,22,12,20,1,18,21,5,0,8,14,24,19,9,4,17,16,10,23,15,3,2,6 }, Actual = 108, KorfNodesExpanded = 116202273788 },
+            new KorfPuzzle { Number = 9, InitialState = new byte[] { 3,2,17,0,14,18,22,19,15,20,9,7,10,21,16,6,24,23,8,5,1,4,11,12,13 }, Actual = 113, KorfNodesExpanded = 1818005616606 },
+            new KorfPuzzle { Number = 10, InitialState = new byte[] { 23,14,0,24,17,9,20,21,2,18,10,13,22,1,3,11,4,16,6,5,7,12,8,15,19 }, Actual = 114, KorfNodesExpanded = 1519052821943 },
+            new KorfPuzzle { Number = 11, InitialState = new byte[] { 15,11,8,18,14,3,19,16,20,5,24,2,17,4,22,10,1,13,9,21,23,7,6,12,0 }, Actual = 106, KorfNodesExpanded = 1654042891186 },
+            new KorfPuzzle { Number = 12, InitialState = new byte[] { 12,23,9,18,24,22,4,0,16,13,20,3,15,6,17,8,7,11,19,1,10,2,14,5,21 }, Actual = 109, KorfNodesExpanded = 624413663951 },
+            new KorfPuzzle { Number = 13, InitialState = new byte[] { 21,24,8,1,19,22,12,9,7,18,4,0,23,14,10,6,3,11,16,5,15,2,20,13,17 }, Actual = 101, KorfNodesExpanded = 1959833487 },
+            new KorfPuzzle { Number = 14, InitialState = new byte[] { 24,1,17,10,15,14,3,13,8,0,22,16,20,7,21,4,12,9,2,11,5,23,6,18,19 }, Actual = 111, KorfNodesExpanded = 1283051362385 },
+            new KorfPuzzle { Number = 15, InitialState = new byte[] { 24,10,15,9,16,6,3,22,17,13,19,23,21,11,18,0,1,2,7,8,20,5,12,4,14 }, Actual = 103, KorfNodesExpanded = 173999717809 },
+            new KorfPuzzle { Number = 16, InitialState = new byte[] { 18,24,17,11,12,10,19,15,6,1,5,21,22,9,7,3,2,16,14,4,20,23,0,8,13 }, Actual = 96, KorfNodesExpanded = 3803445934 },
+            new KorfPuzzle { Number = 17, InitialState = new byte[] { 23,16,13,24,5,18,22,11,17,0,6,9,20,7,3,2,10,14,12,21,1,19,15,8,4 }, Actual = 109, KorfNodesExpanded = 367150048758 },
+            new KorfPuzzle { Number = 18, InitialState = new byte[] { 0,12,24,10,13,5,2,4,19,21,23,18,8,17,9,22,16,11,6,15,7,3,14,1,20 }, Actual = 110, KorfNodesExpanded = 987725030433 },
+            new KorfPuzzle { Number = 19, InitialState = new byte[] { 16,13,6,23,9,8,3,5,24,15,22,12,21,17,1,19,10,7,11,4,18,2,14,20,0 }, Actual = 106, KorfNodesExpanded = 218284544233 },
+            new KorfPuzzle { Number = 20, InitialState = new byte[] { 4,5,1,23,21,13,2,10,18,17,15,7,0,9,3,14,11,12,19,8,6,20,24,22,16 }, Actual = 92, KorfNodesExpanded = 312016177684 },
+            new KorfPuzzle { Number = 21, InitialState = new byte[] { 24,8,14,5,16,4,13,6,22,19,1,10,9,12,3,0,18,21,20,23,15,17,11,7,2 }, Actual = 103, KorfNodesExpanded = 724024589335 },
+            new KorfPuzzle { Number = 22, InitialState = new byte[] { 7,6,3,22,15,19,21,2,13,0,8,10,9,4,18,16,11,24,5,12,17,1,23,14,20 }, Actual = 95, KorfNodesExpanded = 3592980531 },
+            new KorfPuzzle { Number = 23, InitialState = new byte[] { 24,11,18,7,3,17,5,1,23,15,21,8,2,4,19,14,0,16,22,6,9,13,20,12,10 }, Actual = 104, KorfNodesExpanded = 171498441076 },
+            new KorfPuzzle { Number = 24, InitialState = new byte[] { 14,24,18,12,22,15,5,1,23,11,6,19,10,13,7,0,3,9,4,17,2,21,16,20,8 }, Actual = 107, KorfNodesExpanded = 357290691483 },
+            new KorfPuzzle { Number = 25, InitialState = new byte[] { 3,17,9,8,24,1,11,12,14,0,5,4,22,13,16,21,15,6,7,10,20,23,2,18,19 }, Actual = 81, KorfNodesExpanded = 292174444 },
+            new KorfPuzzle { Number = 26, InitialState = new byte[] { 22,21,15,3,14,13,9,19,24,23,16,0,7,10,18,4,11,20,8,2,1,6,5,17,12 }, Actual = 105, KorfNodesExpanded = 12397787391 },
+            new KorfPuzzle { Number = 27, InitialState = new byte[] { 9,19,8,20,2,3,14,1,24,6,13,18,7,10,17,5,22,12,21,16,15,0,23,11,4 }, Actual = 99, KorfNodesExpanded = 53444360033 },
+            new KorfPuzzle { Number = 28, InitialState = new byte[] { 17,15,7,12,8,3,4,9,21,5,16,6,19,20,1,22,24,18,11,14,23,10,2,13,0 }, Actual = 98, KorfNodesExpanded = 2258006870 },
+            new KorfPuzzle { Number = 29, InitialState = new byte[] { 10,3,6,13,1,2,20,14,18,11,15,7,5,12,9,24,17,22,4,8,21,23,19,16,0 }, Actual = 88, KorfNodesExpanded = 4787505637 },
+            new KorfPuzzle { Number = 30, InitialState = new byte[] { 8,19,7,16,12,2,13,22,14,9,11,5,6,3,18,24,0,15,10,23,1,20,4,17,21 }, Actual = 92, KorfNodesExpanded = 1634941420 },
+            new KorfPuzzle { Number = 31, InitialState = new byte[] { 19,20,12,21,7,0,16,10,5,9,14,23,3,11,4,2,6,1,8,15,17,13,22,24,18 }, Actual = 99, KorfNodesExpanded = 26200330686 },
+            new KorfPuzzle { Number = 32, InitialState = new byte[] { 1,12,18,13,17,15,3,7,20,0,19,24,6,5,21,11,2,8,9,16,22,10,4,23,14 }, Actual = 97, KorfNodesExpanded = 428222507 },
+            new KorfPuzzle { Number = 33, InitialState = new byte[] { 11,22,6,21,8,13,20,23,0,2,15,7,12,18,16,3,1,17,5,4,9,14,24,10,19 }, Actual = 106, KorfNodesExpanded = 1062250612558 },
+            new KorfPuzzle { Number = 34, InitialState = new byte[] { 5,18,3,21,22,17,13,24,0,7,15,14,11,2,9,10,1,8,6,16,19,4,20,23,12 }, Actual = 102, KorfNodesExpanded = 481039271661 },
+            new KorfPuzzle { Number = 35, InitialState = new byte[] { 2,10,24,11,22,19,0,3,8,17,15,16,6,4,23,20,18,7,9,14,13,5,12,1,21 }, Actual = 98, KorfNodesExpanded = 116131234743 },
+            new KorfPuzzle { Number = 36, InitialState = new byte[] { 2,10,1,7,16,9,0,6,12,11,3,18,22,4,13,24,20,15,8,14,21,23,17,19,5 }, Actual = 90, KorfNodesExpanded = 2582008940 },
+            new KorfPuzzle { Number = 37, InitialState = new byte[] { 23,22,5,3,9,6,18,15,10,2,21,13,19,12,20,7,0,1,16,24,17,4,14,8,11 }, Actual = 100, KorfNodesExpanded = 1496759944 },
+            new KorfPuzzle { Number = 38, InitialState = new byte[] { 10,3,24,12,0,7,8,11,14,21,22,23,2,1,9,17,18,6,20,4,13,15,5,19,16 }, Actual = 96, KorfNodesExpanded = 38173507 },
+            new KorfPuzzle { Number = 39, InitialState = new byte[] { 16,24,3,14,5,18,7,6,4,2,0,15,8,10,20,13,19,9,21,11,17,12,22,23,1 }, Actual = 104, KorfNodesExpanded = 161211472633 },
+            new KorfPuzzle { Number = 40, InitialState = new byte[] { 2,17,4,13,7,12,10,3,0,16,21,24,8,5,18,20,15,19,14,9,22,11,6,1,23 }, Actual = 82, KorfNodesExpanded = 65099578 },
+            new KorfPuzzle { Number = 41, InitialState = new byte[] { 13,19,9,10,14,15,23,21,24,16,12,11,0,5,22,20,4,18,3,1,6,2,7,17,8 }, Actual = 106, KorfNodesExpanded = 26998190480 },
+            new KorfPuzzle { Number = 42, InitialState = new byte[] { 16,6,20,18,23,19,7,11,13,17,12,9,1,24,3,22,2,21,10,4,8,15,14,5,0 }, Actual = 108, KorfNodesExpanded = 245852754920 },
+            new KorfPuzzle { Number = 43, InitialState = new byte[] { 7,4,19,12,16,20,15,23,8,10,1,18,2,17,14,24,9,5,0,21,6,3,11,13,22 }, Actual = 104, KorfNodesExpanded = 55147320204 },
+            new KorfPuzzle { Number = 44, InitialState = new byte[] { 8,12,18,3,2,11,10,22,24,17,1,13,23,4,20,16,6,15,9,21,19,5,14,0,7 }, Actual = 93, KorfNodesExpanded = 867106238 },
+            new KorfPuzzle { Number = 45, InitialState = new byte[] { 9,7,16,18,12,1,23,8,22,0,6,19,4,13,2,24,11,15,21,17,20,3,10,14,5 }, Actual = 101, KorfNodesExpanded = 79148491306 },
+            new KorfPuzzle { Number = 46, InitialState = new byte[] { 1,16,10,14,17,13,0,3,5,7,4,15,19,2,21,9,23,8,12,6,11,24,22,20,18 }, Actual = 100, KorfNodesExpanded = 65675717510 },
+            new KorfPuzzle { Number = 47, InitialState = new byte[] { 21,11,10,4,16,6,13,24,7,14,1,20,9,17,0,15,2,5,8,22,3,12,18,19,23 }, Actual = 92, KorfNodesExpanded = 30443173162 },
+            new KorfPuzzle { Number = 48, InitialState = new byte[] { 2,22,21,0,23,8,14,20,12,7,16,11,3,5,1,15,4,9,24,10,13,6,19,17,18 }, Actual = 107, KorfNodesExpanded = 555085543507 },
+            new KorfPuzzle { Number = 49, InitialState = new byte[] { 2,21,3,7,0,8,5,14,18,6,12,11,23,20,10,15,17,4,9,16,13,19,24,22,1 }, Actual = 100, KorfNodesExpanded = 108197305702 },
+            new KorfPuzzle { Number = 50, InitialState = new byte[] { 23,1,12,6,16,2,20,10,21,18,14,13,17,19,22,0,15,24,3,7,4,8,5,9,11 }, Actual = 113, KorfNodesExpanded = 4156099168506 },
         };
     }
 

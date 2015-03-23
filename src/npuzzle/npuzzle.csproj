@@ -62,7 +62,7 @@
     <Reference Include="System.Xml" />
   </ItemGroup>
   <ItemGroup>
-    <Compile Include="ByteArrayExtensions.cs" />
+    <Compile Include="Extensions.cs" />
     <Compile Include="KorfPuzzles.cs" />
     <Compile Include="PatternDatabase.cs" />
     <Compile Include="Program.cs" />
