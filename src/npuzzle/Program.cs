@@ -17,11 +17,15 @@ namespace npuzzle
 
         static void Main(string[] args)
         {
+            //CreatePDB(new[] { "build-pdb", "15dj-ht.data", "4", "4", "1,2,3,4,5,6,7" });
+            //CreatePDB(new[] { "build-pdb", "15dj-hb.data", "4", "4", "8,9,10,11,12,13,14,15" });
             //CreatePDB(new[] { "build-pdb", "24dj2-tr.data", "5", "5", "2,3,4,7,8,9" });
             //CreatePDB(new[] { "build-pdb", "24dj2-br.data", "5", "5", "13,14,18,19,23,24" });
             //CreatePDB(new[] { "build-pdb", "24dj2-bl.data", "5", "5", "15,16,17,20,21,22" });
             //CreatePDB(new[] { "build-pdb", "24dj2-tl.data", "5", "5", "1,5,6,10,11,12" });
-            FastIDAStar(Convert.ToInt32(args[0]));
+            //FastIDAStar(Convert.ToInt32(args[0]));
+            FastIDAStar(9);
+            //DoIDAStar(new [] { "korf-dj-vh-{0}.txt" });
             //BreakdownPdbs("24dj-tr.data", "24dj-br.data", "24dj-bl.data", "24dj-tl.data");
             //BreakdownPdbs("15dj-vl.data", "15dj-vr.data");
             //QuickLook();
@@ -30,7 +34,7 @@ namespace npuzzle
         static void QuickLook()
         {
             var h = GetIDAStarHeuristic();
-            var a = KorfPuzzles.Puzzles24
+            var a = KorfPuzzles.Puzzles15
                 .Average(m => (double)h(m.InitialState));
             Console.WriteLine(a);
         }
@@ -98,9 +102,9 @@ namespace npuzzle
 
         static void DoIDAStar(string[] args)
         {
-            if (args.Length > 1)
+            if (args.Length > 0)
             {
-                outputFormat = args[1];
+                outputFormat = args[0];
             }
             DoPuzzles(KorfPuzzles.Puzzles15, IDAStarDriver);
         }
@@ -151,6 +155,8 @@ namespace npuzzle
         {
             var hPDB = AdditivePdbHeuristic("24dj-tr.data", "24dj-br.data", "24dj-bl.data", "24dj-tl.data");
             var hPDB2 = AdditivePdbHeuristic("24dj2-tr.data", "24dj2-br.data", "24dj2-bl.data", "24dj2-tl.data");
+            //var hPDB = AdditivePdbHeuristic("15dj-vl.data", "15dj-vr.data");
+            //var hPDB2 = AdditivePdbHeuristic("15dj-ht.data", "15dj-hb.data");
             return state =>
             {
                 var hOrig = hPDB(state);
@@ -182,6 +188,7 @@ namespace npuzzle
         private static uint nextBest;
         private static Func<byte[], uint> idash;
         private static byte[] noParent;
+        private static SuccessorList successorList;
         static byte[][] IDAStarDriver(byte[] initialState, byte[] goal, Func<byte[], uint> h)
         {
             idash = h;
@@ -190,22 +197,28 @@ namespace npuzzle
             int boxSize = (int)Math.Sqrt(initialState.Length);
             noParent = new byte[initialState.Length];
             var bestPath = noSolution;
+            successorList = new SuccessorList(initialState.Length);
             while (bestPath == noSolution && nextBest != uint.MaxValue)
             {
                 uint threshold = nextBest;
                 nextBest = uint.MaxValue;
-                bestPath = IDAStar(initialState, boxSize, noParent, goal, 0u, threshold);
+                bestPath = IDAStar(initialState, boxSize, noParent, goal, 0u, threshold, successorList);
                 Console.WriteLine();
             }
             return bestPath.ToArray();
         }
-        static Stack<byte[]> IDAStar(byte[] current, int boxSize, byte[] parent, byte[] goal, uint cost, uint upperbound)
+        static Stack<byte[]> IDAStar(byte[] current, int boxSize, byte[] parent, byte[] goal, uint cost, uint upperbound, SuccessorList successors)
         {
             if (AreSame(current, goal)) return new Stack<byte[]>(new[] { current });
             var newCost = cost + 1;
-            var successors = ExpandStateOneBlank(boxSize, current);
-            foreach (var successor in successors)
+            ExpandStateOneBlank(boxSize, current, successors);
+            if (successors.Size > 0 && successors.Next == null)
             {
+                successors.Next = new SuccessorList(current.Length);
+            }
+            while (successors.Size > 0)
+            {
+                var successor = successors.Pop();
                 if (AreSame(successor, parent)) continue;
                 nodeCounter += 1;
                 var newF = newCost + idash(successor);
@@ -215,7 +228,7 @@ namespace npuzzle
                 }
                 else
                 {
-                    var p = IDAStar(successor, boxSize, current, goal, newCost, upperbound);
+                    var p = IDAStar(successor, boxSize, current, goal, newCost, upperbound, successors.Next);
                     if (p != noSolution)
                     {
                         p.Push(current);
@@ -241,26 +254,22 @@ namespace npuzzle
             return true;
         }
 
-        static List<byte[]> ExpandStateOneBlank(int boxSize, byte[] state)
+        static void ExpandStateOneBlank(int boxSize, byte[] state, SuccessorList successors)
         {
-            var successors = new List<byte[]>(4);
             int e = 0;
             while (state[e] != 0) e += 1;
-            if (e > (boxSize - 1)) successors.Add(CreateSuccessor(state, e, e - boxSize)); // up
-            if (e % boxSize > 0) successors.Add(CreateSuccessor(state, e, e - 1)); // left
-            if (e % boxSize < (boxSize - 1)) successors.Add(CreateSuccessor(state, e, e + 1)); // right
-            if (e < (state.Length - boxSize)) successors.Add(CreateSuccessor(state, e, e + boxSize)); // down
-            return successors;
+            if (e > (boxSize - 1)) CreateSuccessor(state, successors.Push(), e, e - boxSize); // up
+            if (e % boxSize > 0) CreateSuccessor(state, successors.Push(), e, e - 1); // left
+            if (e % boxSize < (boxSize - 1)) CreateSuccessor(state, successors.Push(), e, e + 1); // right
+            if (e < (state.Length - boxSize)) CreateSuccessor(state, successors.Push(), e, e + boxSize); // down
         }
-        static byte[] CreateSuccessor(byte[] state, int a, int b)
+        static void CreateSuccessor(byte[] state, byte[] successor, int a, int b)
         {
-            var successor = new byte[state.Length];
             for (int i = 0; i < successor.Length; i += 1)
             {
                 successor[i] = state[i];
             }
             successor.Swap(a, b);
-            return successor;
         }
 
         static List<byte[]> ExpandStateFloodBlank(int rows, int cols, byte[] state)
