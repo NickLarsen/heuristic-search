@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -9,9 +10,9 @@ namespace npuzzle
     {
         private readonly byte[] values;
         private readonly byte[] pattern;
-        private readonly int[] patternDomains;
-        private readonly int[] cValues;
-        private readonly int offset;
+        private readonly uint[] patternDomains;
+        private readonly uint[] cValues;
+        private readonly uint offset;
 
         public byte[] Pattern
         {
@@ -26,10 +27,10 @@ namespace npuzzle
         private PatternDatabase(byte[] pdb)
         {
             values = pdb;
-            int rows = pdb[0];
-            int cols = pdb[1];
-            offset = values[2] + 3;
-            int numElements = rows * cols;
+            uint rows = pdb[0];
+            uint cols = pdb[1];
+            offset = values[2] + 3u;
+            uint numElements = rows * cols;
             pattern = new byte[offset - 3];
             for (int i = 0; i < pattern.Length; i += 1)
             {
@@ -46,7 +47,7 @@ namespace npuzzle
 
         public uint Evaluate(byte[] state)
         {
-            int key = GetPatternKey(state, patternDomains, cValues);
+            uint key = GetPatternKey(state, patternDomains, cValues);
             uint value = values[key + offset];
             return value;
         }
@@ -56,23 +57,27 @@ namespace npuzzle
             return values.GroupBy(m => m).ToDictionary(m => m.Key, m => m.Count());
         }
 
-        public static PatternDatabase Create(int rows, int cols, byte[] pattern, byte[] goal, Action<CreateStats> update, Func<int, int, byte[],List<byte[]>> expand)
+        public static PatternDatabase Create(uint rows, uint cols, byte[] pattern, byte[] goal, Action<CreateStats> update, Func<uint, uint, byte[], List<Tuple<byte[], bool>>> expand)
         {
+            byte[] createPattern = pattern.Any(m => m == 0) ? pattern : new byte[] { 0 }.Concat(pattern).ToArray();
+            var visitedTrackerLow = new BitArray(new byte[int.MaxValue >> 3]); // TODO: make this less of a hack and come up with something appropriately sized and that can handle larger values
+            var visitedTrackerHigh = new BitArray(new byte[int.MaxValue >> 3]); // TODO: make this less of a hack and come up with something appropriately sized and that can handle larger values
             byte[] pdb = InitializePdb(rows, cols, pattern);
-            int offset = pdb[2] + 3;
+            uint offset = pdb[2] + 3u;
             var openList = CreateOpenList(256); // only works because incremental step cost
-            byte[] patternGoal = goal.Select(m => m == 0 || pattern.Contains(m) ? m : byte.MaxValue).ToArray();
+            byte[] patternGoal = goal.Select(m => createPattern.Contains(m) ? m : byte.MaxValue).ToArray();
             openList[0].AddFirst(patternGoal);
+            uint numElements = rows * cols;
             var createStats = new CreateStats()
             {
                 CurrentDepth = 0,
                 StatesCalculated = 0,
-                TotalStates = pdb.Length - offset
+                TotalStates = GetCreateSize(createPattern, numElements),
             };
-            int numElements = rows * cols;
-            int[] patternDomain = CreatePatternDomains(pattern, numElements);
-            int[] cValues = GenerateCValues(numElements);
-            var goalKey = GetPatternKey(goal, patternDomain, cValues) + offset;
+            uint[] createPatternDomain = CreatePatternDomains(createPattern, numElements);
+            uint[] patternDomain = CreatePatternDomains(pattern, numElements);
+            uint[] cValues = GenerateCValues(numElements);
+            uint goalKey = GetPatternKey(goal, patternDomain, cValues) + offset;
             pdb[goalKey] = 0;
             createStats.StatesCalculated += 1;
             for (; createStats.CurrentDepth < openList.Length - 1; createStats.CurrentDepth += 1)
@@ -89,11 +94,30 @@ namespace npuzzle
                     var successors = expand(rows, cols, state);
                     foreach (var successor in successors)
                     {
-                        var key = GetPatternKey(successor, patternDomain, cValues) + offset;
-                        if (pdb[key] != byte.MaxValue) continue;
-                        pdb[key] = nodeCost;
+                        uint key = GetPatternKey(successor.Item1, createPatternDomain, cValues);
+                        if (key < visitedTrackerLow.Count)
+                        {
+                            int keylow = (int)key;
+                            if (visitedTrackerLow.Get(keylow)) continue;
+                            visitedTrackerLow.Set(keylow, true);
+                        }
+                        else
+                        {
+                            int keyhigh = (int)(key - visitedTrackerLow.Count);
+                            if (visitedTrackerHigh.Get(keyhigh)) continue;
+                            visitedTrackerHigh.Set(keyhigh, true);
+                        }
+                        uint finalKey = GetPatternKey(successor.Item1, patternDomain, cValues) + offset;
+                        if (pdb[finalKey] == byte.MaxValue) pdb[finalKey] = nodeCost;
                         createStats.StatesCalculated += 1;
-                        next.AddLast(successor);
+                        if (successor.Item2)
+                        {
+                            nodes.AddLast(successor.Item1);
+                        }
+                        else
+                        {
+                            next.AddLast(successor.Item1);
+                        }
                     }
                 }
             }
@@ -102,11 +126,11 @@ namespace npuzzle
             return new PatternDatabase(pdb);
         }
 
-        static int[] CreatePatternDomains(byte[] pattern, int cellCount)
+        static uint[] CreatePatternDomains(byte[] pattern, uint cellCount)
         {
-            int[] patternDomains = new int[cellCount];
-            int domain = 1;
-            for (int i = 0; i < pattern.Length; i += 1)
+            uint[] patternDomains = new uint[cellCount];
+            uint domain = 1;
+            for (uint i = 0; i < pattern.Length; i += 1)
             {
                 patternDomains[pattern[i]] = domain;
                 domain *= cellCount - i;
@@ -114,9 +138,9 @@ namespace npuzzle
             return patternDomains;
         }
 
-        static int[] GenerateCValues(int numElements)
+        static uint[] GenerateCValues(uint numElements)
         {
-            var cValues = new int[1 << (numElements - 1)];
+            var cValues = new uint[1 << ((int)numElements - 1)];
             for (uint i = 0; i < cValues.Length; i += 1)
             {
                 cValues[i] = BitCount(i);
@@ -124,23 +148,34 @@ namespace npuzzle
             return cValues;
         }
 
-        static int BitCount(uint i)
+        static uint BitCount(uint i)
         {
-            int ones = 0;
+            uint ones = 0;
             while (i > 0)
             {
-                ones += (int)(1 & i);
+                ones += 1 & i;
                 i = i >> 1;
             }
             return ones;
         }
 
-        static byte[] InitializePdb(int rows, int cols, byte[] pattern)
+        static uint GetCreateSize(byte[] pattern, uint cells)
         {
-            var size = 1;
-            for (int i = 0; i < pattern.Length; i += 1)
+            uint size = 1;
+            for (uint i = 0; i < pattern.Length; i += 1)
             {
-                size *= rows * cols - i;
+                size *= cells - i;
+            }
+            return size;
+        }
+
+        static byte[] InitializePdb(uint rows, uint cols, byte[] pattern)
+        {
+            uint cells = rows * cols;
+            uint size = 1;
+            for (uint i = 0; i < pattern.Length; i += 1)
+            {
+                size *= cells - i;
             }
             int offset = pattern.Length + 3;
             byte[] pdb = new byte[offset + size];
@@ -168,12 +203,12 @@ namespace npuzzle
             return openList;
         }
 
-        static int GetPatternKey(byte[] state, int[] patternDomains, int[] cValues)
+        static uint GetPatternKey(byte[] state, uint[] patternDomains, uint[] cValues)
         {
-            int hash = 0;
+            uint hash = 0;
             uint seen = 0u;
             uint mask = uint.MaxValue >> (32 - state.Length);
-            for (int i = 0; i < state.Length; i += 1)
+            for (uint i = 0; i < state.Length; i += 1)
             {
                 var value = state[i];
                 if (value == byte.MaxValue) continue;
@@ -190,9 +225,9 @@ namespace npuzzle
 
         public class CreateStats
         {
-            public int TotalStates { get; set; }
+            public uint TotalStates { get; set; }
             public int CurrentDepth { get; set; }
-            public int StatesCalculated { get; set; }
+            public uint StatesCalculated { get; set; }
             public bool IsFinished { get; set; }
         }
     }

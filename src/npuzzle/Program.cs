@@ -17,17 +17,17 @@ namespace npuzzle
 
         static void Main(string[] args)
         {
-            //CreatePDB(new[] { "build-pdb", "15dj-ht.data", "4", "4", "1,2,3,4,5,6,7" });
-            //CreatePDB(new[] { "build-pdb", "15dj-hb.data", "4", "4", "8,9,10,11,12,13,14,15" });
+            //CreatePDB(new[] { "build-pdb", "15dj-vl.data", "4", "4", "1,4,5,8,9,12,13" });
+            //CreatePDB(new[] { "build-pdb", "15dj-vr.data", "4", "4", "2,3,6,7,10,11,14,15" });
             //CreatePDB(new[] { "build-pdb", "24dj2-tr.data", "5", "5", "2,3,4,7,8,9" });
             //CreatePDB(new[] { "build-pdb", "24dj2-br.data", "5", "5", "13,14,18,19,23,24" });
             //CreatePDB(new[] { "build-pdb", "24dj2-bl.data", "5", "5", "15,16,17,20,21,22" });
             //CreatePDB(new[] { "build-pdb", "24dj2-tl.data", "5", "5", "1,5,6,10,11,12" });
             //FastIDAStar(Convert.ToInt32(args[0]));
-            FastIDAStar(9);
-            //DoIDAStar(new [] { "korf-dj-vh-{0}.txt" });
+            //FastIDAStar(9);
+            DoIDAStar(new [] { "korf-dj15-{0}.txt" });
             //BreakdownPdbs("24dj-tr.data", "24dj-br.data", "24dj-bl.data", "24dj-tl.data");
-            //BreakdownPdbs("15dj-vl.data", "15dj-vr.data");
+            //BreakdownPdbs("15dj-vr.data");
             //QuickLook();
         }
 
@@ -78,13 +78,13 @@ namespace npuzzle
             {
                 outputFormat = args[1];
             }
-            int rows = Convert.ToInt32(args[2]);
-            int cols = Convert.ToInt32(args[3]);
+            uint rows = Convert.ToUInt32(args[2]);
+            uint cols = Convert.ToUInt32(args[3]);
             byte[] pattern = args[4].Split(',').Select(m => Convert.ToByte(m)).ToArray();
-            byte[] goal = Enumerable.Range(0, rows * cols).Select(Convert.ToByte).ToArray();
+            byte[] goal = Enumerable.Range(0, (int)(rows * cols)).Select(Convert.ToByte).ToArray();
             lastMillis = 0;
             timer = Stopwatch.StartNew();
-            var pdb = PatternDatabase.Create(rows, cols, pattern, goal, ShowCreateStats, ExpandStateFloodBlank);
+            var pdb = PatternDatabase.Create(rows, cols, pattern, goal, ShowCreateStats, ExpandCreateState);
             timer.Stop();
             Console.WriteLine();
             Console.WriteLine("Completed building Pattern Database.  Saving to {0}", outputFormat);
@@ -153,16 +153,17 @@ namespace npuzzle
 
         static Func<byte[], uint> GetIDAStarHeuristicWithMirror()
         {
-            var hPDB = AdditivePdbHeuristic("24dj-tr.data", "24dj-br.data", "24dj-bl.data", "24dj-tl.data");
-            var hPDB2 = AdditivePdbHeuristic("24dj2-tr.data", "24dj2-br.data", "24dj2-bl.data", "24dj2-tl.data");
-            //var hPDB = AdditivePdbHeuristic("15dj-vl.data", "15dj-vr.data");
+            //var hPDB = AdditivePdbHeuristic("24dj-tr.data", "24dj-br.data", "24dj-bl.data", "24dj-tl.data");
+            //var hPDB2 = AdditivePdbHeuristic("24dj2-tr.data", "24dj2-br.data", "24dj2-bl.data", "24dj2-tl.data");
+            var hPDB = AdditivePdbHeuristic("15dj-vl.data", "15dj-vr.data");
             //var hPDB2 = AdditivePdbHeuristic("15dj-ht.data", "15dj-hb.data");
-            return state =>
-            {
-                var hOrig = hPDB(state);
-                var hMirror = hPDB2(state);
-                return Math.Max(hOrig, hMirror);
-            };
+            return state => hPDB(state);
+            //return state =>
+            //{
+            //    var hOrig = hPDB(state);
+            //    var hMirror = hPDB2(state);
+            //    return Math.Max(hOrig, hMirror);
+            //};
         }
 
         //private static readonly byte[] SymmetryMap = new byte[] {0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15};
@@ -272,51 +273,27 @@ namespace npuzzle
             successor.Swap(a, b);
         }
 
-        static List<byte[]> ExpandStateFloodBlank(int rows, int cols, byte[] state)
+        static List<Tuple<byte[], bool>> ExpandCreateState(uint rows, uint cols, byte[] state)
         {
-            int boxSize = rows; // TODO: rewrite this to actually use both rows and cols
-            var successors = new List<byte[]>(4 * boxSize * boxSize);
-            var blanks = new byte[state.Length];
-            bool madeChange = true;
-            int zero = -1;
-            while (madeChange)
-            {
-                madeChange = false;
-                for (int i = 0; i < state.Length; i += 1)
-                {
-                    if (state[i] == 0) zero = i;
-                    if (blanks[i] == 1 || (i == zero && blanks[i] == 0))
-                    {
-                        if (i > (boxSize - 1) && state[i - boxSize] == byte.MaxValue && blanks[i - boxSize] == 0) blanks[i - boxSize] = 1; // up
-                        if (i % boxSize > 0 && state[i - 1] == byte.MaxValue && blanks[i - 1] == 0) blanks[i - 1] = 1; // left
-                        if (i % boxSize < (boxSize - 1) && state[i + 1] == byte.MaxValue && blanks[i + 1] == 0) blanks[i + 1] = 1; // right
-                        if (i < (state.Length - boxSize) && state[i + boxSize] == byte.MaxValue && blanks[i + boxSize] == 0) blanks[i + boxSize] = 1; // down
-                        blanks[i] = 2;
-                        madeChange = true;
-                    }
-                }
-            }
-
-            for (int e = 0; e < state.Length; e += 1)
-            {
-                if (blanks[e] != 2) continue;
-                if (e > (boxSize - 1) && blanks[e - boxSize] != 2) successors.Add(CreateFloodSuccessor(state, zero, e, e - boxSize)); // up
-                if (e % boxSize > 0 && blanks[e - 1] != 2) successors.Add(CreateFloodSuccessor(state, zero, e, e - 1)); // left
-                if (e % boxSize < (boxSize - 1) && blanks[e + 1] != 2) successors.Add(CreateFloodSuccessor(state, zero, e, e + 1)); // right
-                if (e < (state.Length - boxSize) && blanks[e + boxSize] != 2) successors.Add(CreateFloodSuccessor(state, zero, e, e + boxSize)); // down
-            }
+            int e = 0;
+            while (state[e] != 0) e += 1;
+            int boxSize = (int)rows;
+            var successors = new List<Tuple<byte[], bool>>(4);
+            if (e > (boxSize - 1)) successors.Add(CreateSuccessor(state, e, e - boxSize)); // up
+            if (e % boxSize > 0) successors.Add(CreateSuccessor(state, e, e - 1)); // left
+            if (e % boxSize < (boxSize - 1)) successors.Add(CreateSuccessor(state, e, e + 1)); // right
+            if (e < (state.Length - boxSize)) successors.Add(CreateSuccessor(state, e, e + boxSize)); // down
             return successors;
         }
-        static byte[] CreateFloodSuccessor(byte[] state, int zero, int a, int b)
+        static Tuple<byte[], bool> CreateSuccessor(byte[] state, int a, int b)
         {
-            var successor = new byte[state.Length];
+            byte[] successor = new byte[state.Length];
             for (int i = 0; i < successor.Length; i += 1)
             {
                 successor[i] = state[i];
             }
-            successor.Swap(zero, a);
             successor.Swap(a, b);
-            return successor;
+            return Tuple.Create(successor, successor[a] == byte.MaxValue);
         }
 
         static Func<byte[], uint> AdditivePdbHeuristic(params string[] pdbFilenames)
@@ -326,12 +303,12 @@ namespace npuzzle
                 .ToArray();
             return state =>
             {
-                uint best = uint.MinValue;
+                uint score = 0;
                 for(int i = 0; i < pdbs.Length; i += 1)
                 {
-                    best += pdbs[i].Evaluate(state);
+                    score += pdbs[i].Evaluate(state);
                 }
-                return best;
+                return score;
             };
         }
     }
