@@ -19,15 +19,15 @@ namespace npuzzle
         {
             //CreatePDB(new[] { "build-pdb", "15dj-vl.data", "4", "4", "1,4,5,8,9,12,13" });
             //CreatePDB(new[] { "build-pdb", "15dj-vr.data", "4", "4", "2,3,6,7,10,11,14,15" });
-            //CreatePDB(new[] { "build-pdb", "24dj2-tr.data", "5", "5", "2,3,4,7,8,9" });
+            CreatePDB(new[] { "build-pdb", "24dj2-tr.data", "5", "5", "2,3,4,7,8,9" });
             //CreatePDB(new[] { "build-pdb", "24dj2-br.data", "5", "5", "13,14,18,19,23,24" });
             //CreatePDB(new[] { "build-pdb", "24dj2-bl.data", "5", "5", "15,16,17,20,21,22" });
-            //CreatePDB(new[] { "build-pdb", "24dj2-tl.data", "5", "5", "1,5,6,10,11,12" });
+            CreatePDB(new[] { "build-pdb", "24dj2-tl.data", "5", "5", "1,5,6,10,11,12" });
             //FastIDAStar(Convert.ToInt32(args[0]));
-            //FastIDAStar(9);
-            DoIDAStar(new [] { "korf-dj15-{0}.txt" });
+            //FastIDAStar(79);
+            //DoIDAStar(new [] { "korf-dj15-{0}.txt" });
             //BreakdownPdbs("24dj-tr.data", "24dj-br.data", "24dj-bl.data", "24dj-tl.data");
-            //BreakdownPdbs("15dj-vr.data");
+            //BreakdownPdbs("15dj-vl.data");
             //QuickLook();
         }
 
@@ -55,7 +55,7 @@ namespace npuzzle
 
         static void FastIDAStar(int puzzleNumber)
         {
-            var puzzle = KorfPuzzles.Puzzles24.Single(m => m.Number == puzzleNumber);
+            var puzzle = KorfPuzzles.Puzzles15.Single(m => m.Number == puzzleNumber);
             Console.WriteLine("\n\n{0}: < {1} >", puzzle.Number, string.Join(",", puzzle.InitialState));
             Console.WriteLine("actual solution length: {0}, korf nodes evaluated: {1:n0}", puzzle.Actual, puzzle.KorfNodesExpanded);
             var heuristic = GetIDAStarHeuristic();
@@ -187,6 +187,7 @@ namespace npuzzle
 
         private static readonly Stack<byte[]> noSolution = new Stack<byte[]>(); 
         private static uint nextBest;
+        private static uint minH;
         private static Func<byte[], uint> idash;
         private static byte[] noParent;
         private static SuccessorList successorList;
@@ -194,6 +195,7 @@ namespace npuzzle
         {
             idash = h;
             nextBest = idash(initialState);
+            minH = nextBest;
             nodeCounter = 1;
             int boxSize = (int)Math.Sqrt(initialState.Length);
             noParent = new byte[initialState.Length];
@@ -205,6 +207,8 @@ namespace npuzzle
                 nextBest = uint.MaxValue;
                 bestPath = IDAStar(initialState, boxSize, noParent, goal, 0u, threshold, successorList);
                 Console.WriteLine();
+                Console.WriteLine("min h: " + minH);
+                minH = uint.MaxValue;
             }
             return bestPath.ToArray();
         }
@@ -213,16 +217,18 @@ namespace npuzzle
             if (AreSame(current, goal)) return new Stack<byte[]>(new[] { current });
             var newCost = cost + 1;
             ExpandStateOneBlank(boxSize, current, successors);
-            if (successors.Size > 0 && successors.Next == null)
-            {
-                successors.Next = new SuccessorList(current.Length);
-            }
             while (successors.Size > 0)
             {
                 var successor = successors.Pop();
                 if (AreSame(successor, parent)) continue;
                 nodeCounter += 1;
-                var newF = newCost + idash(successor);
+                var h = idash(successor);
+                minH = Math.Min(h, minH);
+                var newF = newCost + h;
+                if (h == 1)
+                {
+                    Console.WriteLine("I'm really close.");
+                }
                 if (newF > upperbound)
                 {
                     if (newF < nextBest) nextBest = newF;
