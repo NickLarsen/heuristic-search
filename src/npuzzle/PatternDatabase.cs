@@ -13,6 +13,8 @@ namespace npuzzle
         private readonly uint[] patternDomains;
         private readonly uint[] cValues;
         private readonly uint offset;
+        public readonly uint NumRows;
+        public readonly uint NumCols;
 
         public byte[] Pattern
         {
@@ -27,10 +29,10 @@ namespace npuzzle
         private PatternDatabase(byte[] pdb)
         {
             values = pdb;
-            uint rows = pdb[0];
-            uint cols = pdb[1];
+            NumRows = pdb[0];
+            NumCols = pdb[1];
             offset = values[2] + 3u;
-            uint numElements = rows * cols;
+            uint numElements = NumRows * NumCols;
             pattern = new byte[offset - 3];
             for (int i = 0; i < pattern.Length; i += 1)
             {

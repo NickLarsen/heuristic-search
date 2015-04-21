@@ -19,10 +19,10 @@ namespace npuzzle
         {
             //CreatePDB(new[] { "build-pdb", "15dj-vl.data", "4", "4", "1,4,5,8,9,12,13" });
             //CreatePDB(new[] { "build-pdb", "15dj-vr.data", "4", "4", "2,3,6,7,10,11,14,15" });
-            //CreatePDB(new[] { "build-pdb", "24dj2-tr.data", "5", "5", "2,3,4,7,8,9" });
+            CreatePDB(new[] { "build-pdb", "24dj2-tr.data", "5", "5", "2,3,4,7,8,9" });
             //CreatePDB(new[] { "build-pdb", "24dj2-br.data", "5", "5", "13,14,18,19,23,24" });
             //CreatePDB(new[] { "build-pdb", "24dj2-bl.data", "5", "5", "15,16,17,20,21,22" });
-            //CreatePDB(new[] { "build-pdb", "24dj2-tl.data", "5", "5", "1,5,6,10,11,12" });
+            CreatePDB(new[] { "build-pdb", "24dj2-tl.data", "5", "5", "1,5,6,10,11,12" });
             //FastIDAStar(Convert.ToInt32(args[0]));
             //FastIDAStar(79);
             //DoIDAStar(new [] { "korf-dj15-{0}.txt" });
@@ -155,26 +155,18 @@ namespace npuzzle
         {
             //var hPDB = AdditivePdbHeuristic("24dj-tr.data", "24dj-br.data", "24dj-bl.data", "24dj-tl.data");
             //var hPDB2 = AdditivePdbHeuristic("24dj2-tr.data", "24dj2-br.data", "24dj2-bl.data", "24dj2-tl.data");
-            var hPDB = AdditivePdbHeuristic("15dj-vl.data", "15dj-vr.data");
-            //var hPDB2 = AdditivePdbHeuristic("15dj-ht.data", "15dj-hb.data");
-            return state => hPDB(state);
-            //return state =>
-            //{
-            //    var hOrig = hPDB(state);
-            //    var hMirror = hPDB2(state);
-            //    return Math.Max(hOrig, hMirror);
-            //};
+            var vl15 = new PatternDatabase("15dj-vl.data");
+            var vr15 = new PatternDatabase("15dj-vr.data");
+            var hPDB = AdditivePdbHeuristic(false, vl15, vr15);
+            var hPDB2 = AdditivePdbHeuristic(true, vl15, vr15);
+            //return hPDB;
+            return state =>
+            {
+                var hOrig = hPDB(state);
+                var hMirror = hPDB2(state);
+                return Math.Max(hOrig, hMirror);
+            };
         }
-
-        //private static readonly byte[] SymmetryMap = new byte[] {0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15};
-        //private static readonly byte[] PathMap = new byte[] {0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15};
-        //static void MirrorState(byte[] state, byte[] symmetry)
-        //{
-        //    for (int i = 0; i < symmetry.Length; i += 1)
-        //    {
-        //        symmetry[SymmetryMap[i]] = PathMap[state[i]];
-        //    }
-        //}
 
         static void PrintSolution(byte[][] solution, TextWriter writeLocation)
         {
@@ -293,20 +285,33 @@ namespace npuzzle
             return Tuple.Create(successor, successor[a] == byte.MaxValue);
         }
 
-        static Func<byte[], uint> AdditivePdbHeuristic(params string[] pdbFilenames)
+        static Func<byte[], uint> AdditivePdbHeuristic(bool reflectState, params PatternDatabase[] pdbs)
         {
-            var pdbs = pdbFilenames
-                .Select(f => new PatternDatabase(f))
-                .ToArray();
             return state =>
             {
-                uint score = 0;
-                for(int i = 0; i < pdbs.Length; i += 1)
+                var s = state;
+                if (reflectState)
                 {
-                    score += pdbs[i].Evaluate(state);
+                    s = new byte[state.Length];
+                    MirrorState(state, s);
+                }
+                uint score = 0;
+                for (int i = 0; i < pdbs.Length; i += 1)
+                {
+                    score += pdbs[i].Evaluate(s);
                 }
                 return score;
             };
+        }
+
+        private static readonly byte[] SymmetryMap = new byte[] { 0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15 };
+        private static readonly byte[] PathMap = new byte[] { 0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15 };
+        static void MirrorState(byte[] state, byte[] symmetry)
+        {
+            for (int i = 0; i < symmetry.Length; i += 1)
+            {
+                symmetry[SymmetryMap[i]] = PathMap[state[i]];
+            }
         }
     }
 }
