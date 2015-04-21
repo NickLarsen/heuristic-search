@@ -19,24 +19,15 @@ namespace npuzzle
         {
             //CreatePDB(new[] { "build-pdb", "15dj-vl.data", "4", "4", "1,4,5,8,9,12,13" });
             //CreatePDB(new[] { "build-pdb", "15dj-vr.data", "4", "4", "2,3,6,7,10,11,14,15" });
-            CreatePDB(new[] { "build-pdb", "24dj2-tr.data", "5", "5", "2,3,4,7,8,9" });
+            //CreatePDB(new[] { "build-pdb", "24dj2-tr.data", "5", "5", "2,3,4,7,8,9" });
             //CreatePDB(new[] { "build-pdb", "24dj2-br.data", "5", "5", "13,14,18,19,23,24" });
             //CreatePDB(new[] { "build-pdb", "24dj2-bl.data", "5", "5", "15,16,17,20,21,22" });
-            CreatePDB(new[] { "build-pdb", "24dj2-tl.data", "5", "5", "1,5,6,10,11,12" });
+            //CreatePDB(new[] { "build-pdb", "24dj2-tl.data", "5", "5", "1,5,6,10,11,12" });
             //FastIDAStar(Convert.ToInt32(args[0]));
-            //FastIDAStar(79);
+            FastIDAStar(40);
             //DoIDAStar(new [] { "korf-dj15-{0}.txt" });
             //BreakdownPdbs("24dj-tr.data", "24dj-br.data", "24dj-bl.data", "24dj-tl.data");
             //BreakdownPdbs("15dj-vl.data");
-            //QuickLook();
-        }
-
-        static void QuickLook()
-        {
-            var h = GetIDAStarHeuristic();
-            var a = KorfPuzzles.Puzzles15
-                .Average(m => (double)h(m.InitialState));
-            Console.WriteLine(a);
         }
 
         static void BreakdownPdbs(params string[] filenames)
@@ -55,10 +46,10 @@ namespace npuzzle
 
         static void FastIDAStar(int puzzleNumber)
         {
-            var puzzle = KorfPuzzles.Puzzles15.Single(m => m.Number == puzzleNumber);
+            var puzzle = KorfPuzzles.Puzzles24.Single(m => m.Number == puzzleNumber);
             Console.WriteLine("\n\n{0}: < {1} >", puzzle.Number, string.Join(",", puzzle.InitialState));
             Console.WriteLine("actual solution length: {0}, korf nodes evaluated: {1:n0}", puzzle.Actual, puzzle.KorfNodesExpanded);
-            var heuristic = GetIDAStarHeuristic();
+            var heuristic = GetIDAStarHeuristicWithMirror24();
             timer = Stopwatch.StartNew();
             var solution = IDAStarDriver(puzzle.InitialState, puzzle.Goal, heuristic);
             timer.Stop();
@@ -100,18 +91,18 @@ namespace npuzzle
             }
         }
 
-        static void DoIDAStar(string[] args)
+        static void DoIDAStar15(string[] args)
         {
             if (args.Length > 0)
             {
                 outputFormat = args[0];
             }
-            DoPuzzles(KorfPuzzles.Puzzles15, IDAStarDriver);
+            DoPuzzles(KorfPuzzles.Puzzles15, IDAStarDriver, GetIDAStarHeuristicWithMirror15());
         }
 
-        static void DoPuzzles(KorfPuzzle[] puzzles, Func<byte[], byte[], Func<byte[], uint>, byte[][]> algorithm)
+        static void DoPuzzles(KorfPuzzle[] puzzles, Func<byte[], byte[], Func<byte[], uint>, byte[][]> algorithm, Func<byte[], uint> heuristic)
         {
-            var heuristic = GetIDAStarHeuristic();
+            ulong totalNodesExpanded = 0;
             foreach (var korfPuzzle in puzzles)
             {
                 if (outputFormat != null)
@@ -142,24 +133,33 @@ namespace npuzzle
                 {
                     Console.WriteLine("\nNo solution possible.");
                 }
+                totalNodesExpanded += nodeCounter;
             }
+            Console.WriteLine("\n\n\nTotal nodes expanded: " + totalNodesExpanded);
         }
 
-        static Func<byte[], uint> GetIDAStarHeuristic()
+        static Func<byte[], uint> GetIDAStarHeuristicWithMirror15()
         {
-            //return AdditivePdbHeuristic("24dj2-tr.data", "24dj2-br.data", "24dj2-bl.data", "24dj2-tl.data");
-            return GetIDAStarHeuristicWithMirror();
-        }
-
-        static Func<byte[], uint> GetIDAStarHeuristicWithMirror()
-        {
-            //var hPDB = AdditivePdbHeuristic("24dj-tr.data", "24dj-br.data", "24dj-bl.data", "24dj-tl.data");
-            //var hPDB2 = AdditivePdbHeuristic("24dj2-tr.data", "24dj2-br.data", "24dj2-bl.data", "24dj2-tl.data");
             var vl15 = new PatternDatabase("15dj-vl.data");
             var vr15 = new PatternDatabase("15dj-vr.data");
-            var hPDB = AdditivePdbHeuristic(false, vl15, vr15);
-            var hPDB2 = AdditivePdbHeuristic(true, vl15, vr15);
-            //return hPDB;
+            var hPDB = AdditivePdbHeuristic(null, vl15, vr15);
+            var hPDB2 = AdditivePdbHeuristic(MirrorState15, vl15, vr15);
+            return state =>
+            {
+                var hOrig = hPDB(state);
+                var hMirror = hPDB2(state);
+                return Math.Max(hOrig, hMirror);
+            };
+        }
+
+        static Func<byte[], uint> GetIDAStarHeuristicWithMirror24()
+        {
+            var tr24 = new PatternDatabase("24dj-tr.data");
+            var br24 = new PatternDatabase("24dj-br.data");
+            var bl24 = new PatternDatabase("24dj-bl.data");
+            var tl24 = new PatternDatabase("24dj-tl.data");
+            var hPDB = AdditivePdbHeuristic(null, tr24, br24, bl24, tl24);
+            var hPDB2 = AdditivePdbHeuristic(MirrorState24, tr24, br24, bl24, tl24);
             return state =>
             {
                 var hOrig = hPDB(state);
@@ -186,7 +186,7 @@ namespace npuzzle
         {
             idash = h;
             nextBest = idash(initialState);
-            nodeCounter = 1;
+            nodeCounter = 0;
             int boxSize = (int)Math.Sqrt(initialState.Length);
             noParent = new byte[initialState.Length];
             var bestPath = noSolution;
@@ -248,10 +248,10 @@ namespace npuzzle
         {
             int e = 0;
             while (state[e] != 0) e += 1;
-            if (e > (boxSize - 1)) CreateSuccessor(state, successors.Push(), e, e - boxSize); // up
-            if (e % boxSize > 0) CreateSuccessor(state, successors.Push(), e, e - 1); // left
-            if (e % boxSize < (boxSize - 1)) CreateSuccessor(state, successors.Push(), e, e + 1); // right
             if (e < (state.Length - boxSize)) CreateSuccessor(state, successors.Push(), e, e + boxSize); // down
+            if (e % boxSize < (boxSize - 1)) CreateSuccessor(state, successors.Push(), e, e + 1); // right
+            if (e % boxSize > 0) CreateSuccessor(state, successors.Push(), e, e - 1); // left
+            if (e > (boxSize - 1)) CreateSuccessor(state, successors.Push(), e, e - boxSize); // up
         }
         static void CreateSuccessor(byte[] state, byte[] successor, int a, int b)
         {
@@ -268,10 +268,10 @@ namespace npuzzle
             while (state[e] != 0) e += 1;
             int boxSize = (int)rows;
             var successors = new List<Tuple<byte[], bool>>(4);
-            if (e > (boxSize - 1)) successors.Add(CreateSuccessor(state, e, e - boxSize)); // up
             if (e % boxSize > 0) successors.Add(CreateSuccessor(state, e, e - 1)); // left
-            if (e % boxSize < (boxSize - 1)) successors.Add(CreateSuccessor(state, e, e + 1)); // right
+            if (e > (boxSize - 1)) successors.Add(CreateSuccessor(state, e, e - boxSize)); // up
             if (e < (state.Length - boxSize)) successors.Add(CreateSuccessor(state, e, e + boxSize)); // down
+            if (e % boxSize < (boxSize - 1)) successors.Add(CreateSuccessor(state, e, e + 1)); // right
             return successors;
         }
         static Tuple<byte[], bool> CreateSuccessor(byte[] state, int a, int b)
@@ -285,15 +285,15 @@ namespace npuzzle
             return Tuple.Create(successor, successor[a] == byte.MaxValue);
         }
 
-        static Func<byte[], uint> AdditivePdbHeuristic(bool reflectState, params PatternDatabase[] pdbs)
+        static Func<byte[], uint> AdditivePdbHeuristic(Action<byte[], byte[]> stateProcessor, params PatternDatabase[] pdbs)
         {
             return state =>
             {
                 var s = state;
-                if (reflectState)
+                if (stateProcessor != null)
                 {
                     s = new byte[state.Length];
-                    MirrorState(state, s);
+                    stateProcessor(state, s);
                 }
                 uint score = 0;
                 for (int i = 0; i < pdbs.Length; i += 1)
@@ -304,13 +304,23 @@ namespace npuzzle
             };
         }
 
-        private static readonly byte[] SymmetryMap = new byte[] { 0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15 };
-        private static readonly byte[] PathMap = new byte[] { 0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15 };
-        static void MirrorState(byte[] state, byte[] symmetry)
+        private static readonly byte[] SymmetryMap15 = new byte[] { 0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15 };
+        private static readonly byte[] PathMap15 = new byte[] { 0, 4, 8, 12, 1, 5, 9, 13, 2, 6, 10, 14, 3, 7, 11, 15 };
+        static void MirrorState15(byte[] state, byte[] symmetry)
         {
             for (int i = 0; i < symmetry.Length; i += 1)
             {
-                symmetry[SymmetryMap[i]] = PathMap[state[i]];
+                symmetry[SymmetryMap15[i]] = PathMap15[state[i]];
+            }
+        }
+
+        private static readonly byte[] SymmetryMap24 = new byte[] { 0, 5, 10, 15, 20, 1, 6, 11, 16, 21, 2, 7, 12, 17, 22, 3, 8, 13, 18, 23, 4, 9, 14, 19, 24 };
+        private static readonly byte[] PathMap24 = new byte[] { 0, 5, 10, 15, 20, 1, 6, 11, 16, 21, 2, 7, 12, 17, 22, 3, 8, 13, 18, 23, 4, 9, 14, 19, 24 };
+        static void MirrorState24(byte[] state, byte[] symmetry)
+        {
+            for (int i = 0; i < symmetry.Length; i += 1)
+            {
+                symmetry[SymmetryMap24[i]] = PathMap24[state[i]];
             }
         }
     }
