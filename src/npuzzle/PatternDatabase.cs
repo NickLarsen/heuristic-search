@@ -54,7 +54,7 @@ namespace npuzzle
 
         public Dictionary<byte, int> GetValueCounts()
         {
-            return values.GroupBy(m => m).ToDictionary(m => m.Key, m => m.Count());
+            return values.Skip((int)offset).GroupBy(m => m).ToDictionary(m => m.Key, m => m.Count());
         }
 
         public static PatternDatabase Create(uint rows, uint cols, byte[] pattern, byte[] goal, Action<CreateStats> update, Func<uint, uint, byte[], List<Tuple<byte[], bool>>> expand)
@@ -77,6 +77,9 @@ namespace npuzzle
             uint[] createPatternDomain = CreatePatternDomains(createPattern, numElements);
             uint[] patternDomain = CreatePatternDomains(pattern, numElements);
             uint[] cValues = GenerateCValues(numElements);
+            uint initialGoalKey = GetPatternKey(goal, createPatternDomain, cValues);
+            int initialVisitedKey = initialGoalKey < visitedTrackerLow.Count ? (int)initialGoalKey : (int)(initialGoalKey - visitedTrackerLow.Count);
+            visitedTrackerLow.Set(initialVisitedKey, true);
             uint goalKey = GetPatternKey(goal, patternDomain, cValues) + offset;
             pdb[goalKey] = 0;
             createStats.StatesCalculated += 1;
