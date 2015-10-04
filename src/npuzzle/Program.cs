@@ -159,7 +159,7 @@ namespace npuzzle
             var bl24 = new PatternDatabase("24dj-bl.data");
             var tl24 = new PatternDatabase("24dj-tl.data");
             var hPDB = AdditivePdbHeuristic(null, tr24, br24, bl24, tl24);
-            var hPDB2 = AdditivePdbHeuristic(MirrorState24, tr24, br24, bl24, tl24);
+            var hPDB2 = AdditivePdbHeuristic(MirrorState24Fast, tr24, br24, bl24, tl24);
             return state =>
             {
                 var hOrig = hPDB(state);
@@ -295,10 +295,15 @@ namespace npuzzle
                     s = new byte[state.Length];
                     stateProcessor(state, s);
                 }
+                var sFast = new byte[state.Length];
+                for (byte i = 0; i < state.Length; i++)
+                {
+                    sFast[s[i]] = i;
+                }
                 uint score = 0;
                 for (int i = 0; i < pdbs.Length; i += 1)
                 {
-                    score += pdbs[i].Evaluate(s);
+                    score += pdbs[i].Evaluate(sFast);
                 }
                 return score;
             };
@@ -322,6 +327,35 @@ namespace npuzzle
             {
                 symmetry[SymmetryMap24[i]] = PathMap24[state[i]];
             }
+        }
+
+        static void MirrorState24Fast(byte[] state, byte[] symmetry)
+        {
+            symmetry[0] = PathMap24[state[0]];
+            symmetry[5] = PathMap24[state[1]];
+            symmetry[10] = PathMap24[state[2]];
+            symmetry[15] = PathMap24[state[3]];
+            symmetry[20] = PathMap24[state[4]];
+            symmetry[1] = PathMap24[state[5]];
+            symmetry[6] = PathMap24[state[6]];
+            symmetry[11] = PathMap24[state[7]];
+            symmetry[16] = PathMap24[state[8]];
+            symmetry[21] = PathMap24[state[9]];
+            symmetry[2] = PathMap24[state[10]];
+            symmetry[7] = PathMap24[state[11]];
+            symmetry[12] = PathMap24[state[12]];
+            symmetry[17] = PathMap24[state[13]];
+            symmetry[22] = PathMap24[state[14]];
+            symmetry[3] = PathMap24[state[15]];
+            symmetry[8] = PathMap24[state[16]];
+            symmetry[13] = PathMap24[state[17]];
+            symmetry[18] = PathMap24[state[18]];
+            symmetry[23] = PathMap24[state[19]];
+            symmetry[4] = PathMap24[state[20]];
+            symmetry[9] = PathMap24[state[21]];
+            symmetry[14] = PathMap24[state[22]];
+            symmetry[19] = PathMap24[state[23]];
+            symmetry[24] = PathMap24[state[24]];
         }
     }
 }

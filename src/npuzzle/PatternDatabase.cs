@@ -10,8 +10,6 @@ namespace npuzzle
     {
         private readonly byte[] values;
         private readonly byte[] pattern;
-        private readonly uint[] patternDomains;
-        private readonly uint[] cValues;
         private readonly uint offset;
         public readonly uint NumRows;
         public readonly uint NumCols;
@@ -32,14 +30,11 @@ namespace npuzzle
             NumRows = pdb[0];
             NumCols = pdb[1];
             offset = values[2] + 3u;
-            uint numElements = NumRows * NumCols;
             pattern = new byte[offset - 3];
             for (int i = 0; i < pattern.Length; i += 1)
             {
                 pattern[i] = values[i + 3];
             }
-            patternDomains = CreatePatternDomains(pattern, numElements);
-            cValues = GenerateCValues(numElements);
         }
 
         public void Save(string filename)
@@ -49,7 +44,7 @@ namespace npuzzle
 
         public uint Evaluate(byte[] state)
         {
-            uint key = GetPatternKey(state, patternDomains, cValues);
+            uint key = GetPatternKeyFast(state, pattern);
             uint value = values[key + offset];
             return value;
         }
@@ -153,15 +148,12 @@ namespace npuzzle
             return cValues;
         }
 
+        //http://stackoverflow.com/a/109025/178082
         static uint BitCount(uint i)
         {
-            uint ones = 0;
-            while (i > 0)
-            {
-                ones += 1 & i;
-                i = i >> 1;
-            }
-            return ones;
+            i = i - ((i >> 1) & 0x55555555);
+            i = (i & 0x33333333) + ((i >> 2) & 0x33333333);
+            return (((i + (i >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24;
         }
 
         static uint GetCreateSize(byte[] pattern, uint cells)
@@ -210,20 +202,42 @@ namespace npuzzle
 
         static uint GetPatternKey(byte[] state, uint[] patternDomains, uint[] cValues)
         {
+            int stateLength = state.Length;
             uint hash = 0;
             uint seen = 0u;
-            uint mask = uint.MaxValue >> (32 - state.Length);
-            for (uint i = 0; i < state.Length; i += 1)
+            uint mask = uint.MaxValue >> (32 - stateLength);
+            for (uint i = 0; i < stateLength; i += 1)
             {
                 var value = state[i];
                 if (value == byte.MaxValue) continue;
                 var domain = patternDomains[value];
                 if (domain > 0)
                 {
-                    uint seenLessThanValue = seen & (mask >> state.Length - value);
+                    uint seenLessThanValue = seen & (mask >> stateLength - value);
                     hash += domain * (i - cValues[seenLessThanValue]);
                     seen |= 1u << value;
                 }
+            }
+            return hash;
+        }
+
+        static uint GetPatternKeyFast(byte[] state, byte[] pattern)
+        {
+            uint hash = 0u;
+            uint indexesSeen = 0u;
+            uint domain = 1u;
+            for (uint pi = 0; pi < 6u; pi++)
+            {
+                var value = pattern[pi];
+                var i = state[value];
+                uint maskShift = 0x1ffffffu >> 25 - i;
+                uint j = indexesSeen & maskShift;
+                j  = j - ((j >> 1) & 0x55555555);
+                j = (j & 0x33333333) + ((j >> 2) & 0x33333333);
+                j = (((j + (j >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24;
+                hash += domain * (i - j);
+                indexesSeen |= 1u << i;
+                domain *= 25u - pi;
             }
             return hash;
         }
