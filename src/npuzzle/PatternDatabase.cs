@@ -231,11 +231,10 @@ namespace npuzzle
                 var value = pattern[pi];
                 var i = state[value];
                 uint maskShift = 0x1ffffffu >> 25 - i;
-                //uint j = indexesSeen & maskShift;
-                //j  = j - ((j >> 1) & 0x55555555);
-                //j = (j & 0x33333333) + ((j >> 2) & 0x33333333);
-                //j = (((j + (j >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24;
-                uint j = ProcessorDirect.ProcessorFuncs.BitCount(indexesSeen & maskShift);
+                uint j = indexesSeen & maskShift;
+                j = j - ((j >> 1) & 0x55555555);
+                j = (j & 0x33333333) + ((j >> 2) & 0x33333333);
+                j = (((j + (j >> 4)) & 0x0F0F0F0F) * 0x01010101) >> 24;
                 hash += domain * (i - j);
                 indexesSeen |= 1u << i;
                 domain *= 25u - pi;
